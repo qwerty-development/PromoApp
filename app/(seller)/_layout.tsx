@@ -4,7 +4,7 @@ import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export default function TabsLayout() {
+export default function SellerTabsLayout() {
   const colorScheme = useColorScheme();
 
   return (
@@ -24,13 +24,25 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="add-promotion"
+        options={{
+          headerShown: true,
+          headerTitle: 'Add Promotion',
+          title: 'Add',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'add-circle' : 'add-circle-outline'} color={color} />
+          ),
+        }}
+      />
+      
+      <Tabs.Screen
         name="profile"
         options={{
           headerShown: true,
           headerTitle: 'Profile',
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'man' : 'man'} color={color} />
+            <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} />
           ),
         }}
       />

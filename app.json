@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PromoApp",
-    "slug": "PromoApp",
+    "slug": "3roudat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -31,6 +31,21 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "25645e2f-f83d-4f60-b8e1-f4aa018217f9"
+      }
+    },
+    "owner": "qwerty-app",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/25645e2f-f83d-4f60-b8e1-f4aa018217f9"
     }
   }
 }
