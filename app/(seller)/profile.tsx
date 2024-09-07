@@ -6,11 +6,16 @@ import {
 	StyleSheet,
 	Alert,
 	ScrollView,
-	TouchableOpacity
+	TouchableOpacity,
+	Image,
+	ActivityIndicator
 } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import * as Location from 'expo-location'
+import * as ImagePicker from 'expo-image-picker'
+import * as FileSystem from 'expo-file-system'
+import { Buffer } from 'buffer'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 
@@ -20,7 +25,9 @@ export default function ProfileScreen() {
 	const [latitude, setLatitude] = useState('')
 	const [longitude, setLongitude] = useState('')
 	const [businessName, setBusinessName] = useState('')
+	const [logo, setLogo] = useState('')
 	const [isEditing, setIsEditing] = useState(false)
+	const [isUploading, setIsUploading] = useState(false)
 	const router = useRouter()
 
 	useEffect(() => {
@@ -32,7 +39,9 @@ export default function ProfileScreen() {
 	async function fetchProfile() {
 		const { data, error } = await supabase
 			.from('users')
-			.select('contact_number, latitude, longitude, business_name')
+			.select(
+				'contact_number, latitude, longitude, business_name, business_logo'
+			)
 			.eq('id', user?.id)
 			.single()
 
@@ -43,6 +52,7 @@ export default function ProfileScreen() {
 			setLatitude(data.latitude?.toString() || '')
 			setLongitude(data.longitude?.toString() || '')
 			setBusinessName(data.business_name || '')
+			setLogo(data.business_logo || '')
 		}
 	}
 
@@ -86,10 +96,96 @@ export default function ProfileScreen() {
 		}
 	}
 
+	const pickImage = async () => {
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+		if (status !== 'granted') {
+			Alert.alert(
+				'Permission Denied',
+				'Sorry, we need camera roll permissions to make this work!'
+			)
+			return
+		}
+
+		let result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: true,
+			aspect: [1, 1],
+			quality: 1
+		})
+
+		if (!result.canceled && result.assets && result.assets.length > 0) {
+			setIsUploading(true)
+			try {
+				await handleImageUpload(result.assets[0].uri)
+			} catch (error) {
+				console.error('Error uploading image:', error)
+				Alert.alert('Error', 'Failed to upload image. Please try again.')
+			} finally {
+				setIsUploading(false)
+			}
+		}
+	}
+
+	const handleImageUpload = async (imageUri: string) => {
+		if (!user) return
+
+		try {
+			const fileName = `${Date.now()}_${Math.random()
+				.toString(36)
+				.substring(7)}.jpg`
+			const filePath = `${user.id}/${fileName}`
+
+			const base64 = await FileSystem.readAsStringAsync(imageUri, {
+				encoding: FileSystem.EncodingType.Base64
+			})
+
+			const { data, error } = await supabase.storage
+				.from('logos')
+				.upload(filePath, Buffer.from(base64, 'base64'), {
+					contentType: 'image/jpeg'
+				})
+
+			if (error) throw error
+
+			const { data: publicURLData } = supabase.storage
+				.from('logos')
+				.getPublicUrl(filePath)
+
+			if (!publicURLData) throw new Error('Error getting public URL')
+
+			const newLogoUrl = publicURLData.publicUrl
+
+			// Update the logo URL in the state
+			setLogo(newLogoUrl)
+
+			// Update the business_logo field in the database
+			const { error: updateError } = await supabase
+				.from('users')
+				.update({ business_logo: newLogoUrl })
+				.eq('id', user.id)
+
+			if (updateError) throw updateError
+
+			Alert.alert('Success', 'Logo updated successfully')
+		} catch (error: any) {
+			console.error('Detailed error in handleImageUpload:', error)
+			Alert.alert('Error', `Failed to upload image: ${error.message}`)
+		}
+	}
+
 	return (
 		<ScrollView style={styles.container}>
 			<View style={styles.header}>
-				<Ionicons name='person-circle-outline' size={100} color='#0a7ea4' />
+				<TouchableOpacity onPress={pickImage} disabled={isUploading}>
+					{isUploading ? (
+						<ActivityIndicator size='large' color='#0a7ea4' />
+					) : (
+						<Image
+							source={{ uri: logo || 'https://via.placeholder.com/150' }}
+							style={styles.logo}
+						/>
+					)}
+				</TouchableOpacity>
 				<Text style={styles.headerText}>{user?.email}</Text>
 				<Text style={styles.infoText}>Business Name: {businessName}</Text>
 				<Text style={styles.infoText}>Phone: {phone}</Text>
@@ -171,6 +267,12 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+	logo: {
+		width: 150,
+		height: 150,
+		borderRadius: 75,
+		marginBottom: 20
+	},
 	container: {
 		flex: 1,
 		padding: 20,
