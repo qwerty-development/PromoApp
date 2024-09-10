@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +18,8 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as ImagePicker from 'expo-image-picker';
 import RNPickerSelect from 'react-native-picker-select';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+
 interface Industry {
   label: string;
   value: number;
@@ -53,7 +66,6 @@ export default function AddPromotionScreen() {
     }
   };
 
-
   async function handleAddPromotion() {
     if (!title || !description || !industry || !bannerImage || !user || !quantity) {
       Alert.alert('Error', 'Please fill in all fields, upload a banner image, and set a quantity.');
@@ -82,35 +94,35 @@ export default function AddPromotionScreen() {
       }
 
       const { data: promotionData, error: insertError } = await supabase
-      .from('promotions')
-      .insert({
-        title,
-        description,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-        seller_id: user.id,
-        industry_id: industry,
-        banner_url: publicFile.publicUrl,
-        is_approved: false,
-        quantity: parseInt(quantity),
-        used_quantity: 0,
-        unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        original_price: originalPrice ? parseFloat(originalPrice) : null,
-        promotional_price: parseFloat(promotionalPrice),
-      })
-      .select()
-      .single();
+        .from('promotions')
+        .insert({
+          title,
+          description,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          seller_id: user.id,
+          industry_id: industry,
+          banner_url: publicFile.publicUrl,
+          is_approved: false,
+          quantity: parseInt(quantity),
+          used_quantity: 0,
+          unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          original_price: originalPrice ? parseFloat(originalPrice) : null,
+          promotional_price: parseFloat(promotionalPrice),
+        })
+        .select()
+        .single();
 
-    if (insertError) {
-      throw new Error(insertError.message);
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      Alert.alert('Success', 'Promotion added successfully');
+      router.back();
+    } catch (error) {
+      Alert.alert('Error', (error as Error).message);
     }
-
-    Alert.alert('Success', 'Promotion added successfully');
-    router.back();
-  } catch (error) {
-    Alert.alert('Error', (error as Error).message);
   }
-}
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -138,150 +150,167 @@ export default function AddPromotionScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Ionicons name="add-circle-outline" size={100} color="#0a7ea4" />
-        <Text style={styles.headerText}>Add New Promotion</Text>
-      </View>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <LinearGradient
+          colors={['#FF6B6B', '#FF6B6B']}
+          style={styles.header}
+        >
+          <Ionicons name="add-circle-outline" size={80} color="#ffffff" />
+          <Text style={styles.headerText}>Create New Promotion</Text>
+        </LinearGradient>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Title:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter promotion title"
-          value={title}
-          onChangeText={setTitle}
-        />
-      </View>
+        <View style={styles.formContainer}>
+          <InputField
+            label="Title"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Enter promotion title"
+          />
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Description:</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Enter promotion description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-        />
-      </View>
+          <InputField
+            label="Description"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Enter promotion description"
+            multiline
+            numberOfLines={4}
+          />
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Industry:</Text>
-        <RNPickerSelect
-          onValueChange={(value: number | null) => setIndustry(value)}
-          items={industries}
-          style={pickerSelectStyles}
-          value={industry}
-          placeholder={{ label: "Select an industry", value: null }}
-        />
-      </View>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Industry:</Text>
+            <RNPickerSelect
+              onValueChange={(value: number | null) => setIndustry(value)}
+              items={industries}
+              style={pickerSelectStyles}
+              value={industry}
+              placeholder={{ label: "Select an industry", value: null }}
+            />
+          </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Original Price (Optional):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter original price"
-          value={originalPrice}
-          onChangeText={(text) => {
-            setOriginalPrice(text);
-            calculateDiscountPercentage(text, promotionalPrice);
-          }}
-          keyboardType="numeric"
-        />
-      </View>
+          <View style={styles.priceContainer}>
+            <InputField
+              label="Original Price"
+              value={originalPrice}
+              onChangeText={(text: React.SetStateAction<string>) => {
+                setOriginalPrice(text);
+                calculateDiscountPercentage(text, promotionalPrice);
+              }}
+              placeholder="Original price"
+              keyboardType="numeric"
+              style={styles.halfWidth}
+            />
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Promotional Price:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter promotional price"
-          value={promotionalPrice}
-          onChangeText={(text) => {
-            setPromotionalPrice(text);
-            calculateDiscountPercentage(originalPrice, text);
-          }}
-          keyboardType="numeric"
-        />
-      </View>
+            <InputField
+              label="Promotional Price"
+              value={promotionalPrice}
+              onChangeText={(text: React.SetStateAction<string>) => {
+                setPromotionalPrice(text);
+                calculateDiscountPercentage(originalPrice, text);
+              }}
+              placeholder="Promo price"
+              keyboardType="numeric"
+              style={styles.halfWidth}
+            />
+          </View>
 
-      {discountPercentage && (
-        <View style={styles.discountContainer}>
-          <Text style={styles.discountText}>Discount: {discountPercentage}%</Text>
+          {discountPercentage && (
+            <View style={styles.discountContainer}>
+              <Text style={styles.discountText}>Discount: {discountPercentage}%</Text>
+            </View>
+          )}
+
+          <View style={styles.dateContainer}>
+            <View style={styles.halfWidth}>
+              <Text style={styles.label}>Start Date:</Text>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
+                <Text style={styles.dateButtonText}>{startDate.toDateString()}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.halfWidth}>
+              <Text style={styles.label}>End Date:</Text>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
+                <Text style={styles.dateButtonText}>{endDate.toDateString()}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {(showStartPicker || showEndPicker) && (
+            <DateTimePicker
+              value={showStartPicker ? startDate : endDate}
+              mode="date"
+              display="default"
+              onChange={showStartPicker ? onChangeStartDate : onChangeEndDate}
+            />
+          )}
+
+          <InputField
+            label="Quantity"
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="Enter promotion quantity"
+            keyboardType="numeric"
+          />
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Banner Image:</Text>
+            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+              <Ionicons name="image-outline" size={24} color="#FF6B6B" />
+              <Text style={styles.imageButtonText}>Select Banner Image</Text>
+            </TouchableOpacity>
+          </View>
+
+          {bannerImage && (
+            <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
+          )}
+
+          <TouchableOpacity style={styles.addButton} onPress={handleAddPromotion}>
+            <Text style={styles.addButtonText}>Create Promotion</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Start Date:</Text>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
-          <Text>{startDate.toDateString()}</Text>
-        </TouchableOpacity>
-        {showStartPicker && (
-          <DateTimePicker
-            value={startDate}
-            mode="date"
-            display="default"
-            onChange={onChangeStartDate}
-          />
-        )}
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>End Date:</Text>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
-          <Text>{endDate.toDateString()}</Text>
-        </TouchableOpacity>
-        {showEndPicker && (
-          <DateTimePicker
-            value={endDate}
-            mode="date"
-            display="default"
-            onChange={onChangeEndDate}
-          />
-        )}
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Quantity:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter promotion quantity"
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Banner Image:</Text>
-        <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-          <Text>Select Banner Image</Text>
-        </TouchableOpacity>
-        {bannerImage && <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />}
-      </View>
-
-      <TouchableOpacity style={styles.addButton} onPress={handleAddPromotion}>
-        <Text style={styles.addButtonText}>Add Promotion</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
+
+const InputField = ({ label, ...props }:any) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.label}>{label}:</Text>
+    <TextInput
+      style={[styles.input, props.style]}
+      placeholderTextColor="#999"
+      {...props}
+    />
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0f0f0',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    paddingVertical: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 10,
-    color: '#333',
+    color: '#ffffff',
+  },
+  formContainer: {
+    padding: 20,
   },
   inputContainer: {
     marginBottom: 20,
@@ -290,7 +319,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#555',
+    color: '#333',
   },
   input: {
     height: 50,
@@ -300,10 +329,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
     backgroundColor: 'white',
+    color: '#333',
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+  priceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  halfWidth: {
+    width: '48%',
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   dateButton: {
     height: 50,
@@ -311,26 +349,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 15,
-    fontSize: 16,
-    backgroundColor: 'white',
     justifyContent: 'center',
+    backgroundColor: 'white',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#333',
   },
   imageButton: {
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    backgroundColor: 'white',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderColor: '#0a7ea4',
+    borderWidth: 2,
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
+  imageButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#0a7ea4',
+    fontWeight: 'bold',
   },
   bannerPreview: {
     width: '100%',
     height: 200,
     resizeMode: 'cover',
-    marginTop: 10,
+    marginBottom: 20,
     borderRadius: 10,
   },
   addButton: {
@@ -348,11 +394,12 @@ const styles = StyleSheet.create({
   discountContainer: {
     backgroundColor: '#e6f7ff',
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 10,
     marginBottom: 20,
+    alignItems: 'center',
   },
   discountText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0a7ea4',
   },

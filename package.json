@@ -16,17 +16,19 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
-    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-async-storage/async-storage": "^1.23.1",
     "@react-native-community/datetimepicker": "8.0.1",
     "@react-native-picker/picker": "2.7.5",
     "@react-navigation/native": "^6.0.2",
     "@react-navigation/stack": "^6.4.1",
     "@supabase/supabase-js": "^2.45.3",
+    "date-fns": "^3.6.0",
     "expo": "~51.0.28",
     "expo-barcode-scanner": "~13.0.1",
     "expo-blur": "~13.0.2",
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.9",
+    "expo-image": "~1.12.15",
     "expo-image-picker": "~15.0.7",
     "expo-linear-gradient": "~13.0.2",
     "expo-linking": "~6.3.1",
@@ -53,8 +55,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
     "react-navigation-shared-element": "^3.1.3",
-    "use-debounce": "^10.0.3",
-    "expo-image": "~1.12.15"
+    "use-debounce": "^10.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

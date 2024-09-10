@@ -13,7 +13,7 @@ const { width } = Dimensions.get('window');
 const qrSize = width * 0.7;
 
 interface Promotion {
-  id: number;
+  id: string;
   title: string;
   description: string;
   banner_url: string;
@@ -46,9 +46,12 @@ export default function ScanPromotionScreen() {
 
   const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
     if (!isScanning || !user) return;
-    
+
     setIsScanning(false);
     try {
+      console.log('Scanned QR code:', data);
+      console.log('Current seller ID:', user.id);
+
       const { data: promotionData, error: promotionError } = await supabase
         .from('promotions')
         .select('*')
@@ -56,33 +59,37 @@ export default function ScanPromotionScreen() {
         .single();
 
       if (promotionError) {
-        if (promotionError.code === 'PGRST116') {
-          throw new Error('Invalid Promotion: This QR code does not match any active promotion.');
-        }
-        throw promotionError;
+        console.error('Error fetching promotion:', promotionError);
+        throw new Error('Invalid Promotion: This QR code does not match any active promotion.');
       }
 
-      const { data: claimedData, error: claimedError } = await supabase
-        .from('claimed_promotions')
-        .select('*')
-        .eq('promotion_id', promotionData.id)
-        .eq('user_id', user.id)
-        .single();
+      console.log('Fetched promotion:', promotionData);
 
-      if (claimedError && claimedError.code !== 'PGRST116') {
-        throw claimedError;
+      // Check if the current user (seller) is the one who posted the promotion
+      if (promotionData.seller_id !== user.id) {
+        throw new Error('Unauthorized: You are not the seller of this promotion.');
       }
 
-      if (claimedData?.scanned) {
-        throw new Error('Already Scanned: This promotion has already been scanned and used.');
+      const { data: result, error } = await supabase
+        .rpc('process_promotion_scan', {
+          p_promotion_id: promotionData.id,
+          p_seller_id: user.id
+        });
+
+      if (error) {
+        console.error('Error calling process_promotion_scan:', error);
+        throw error;
       }
 
-      if (promotionData.used_quantity >= promotionData.quantity) {
-        throw new Error('Promotion Exhausted: This promotion has reached its usage limit.');
+      console.log('process_promotion_scan result:', JSON.stringify(result, null, 2));
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to process the promotion.');
       }
 
       setScannedPromotion(promotionData);
       setModalVisible(true);
+      Alert.alert('Success', result.message);
     } catch (error) {
       console.error('Error processing QR code:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to process QR code. Please try again.');
@@ -91,34 +98,59 @@ export default function ScanPromotionScreen() {
     }
   }, [isScanning, user]);
 
-  const handleClaimPromotion = async () => {
-    if (!scannedPromotion || !user) return;
+
+  const handleClaimPromotion = useCallback(async () => {
+    if (!scannedPromotion || !user) {
+      Alert.alert('Error', 'Unable to claim promotion at this time.');
+      return;
+    }
 
     try {
-      const { error: claimError } = await supabase
+      const { data: existingClaim, error: checkError } = await supabase
+        .from('claimed_promotions')
+        .select('*')
+        .eq('promotion_id', scannedPromotion.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing claim:', checkError);
+        throw new Error('Failed to check existing claim');
+      }
+
+      if (existingClaim) {
+        Alert.alert('Info', 'You have already claimed this promotion');
+        return;
+      }
+
+      if (scannedPromotion.used_quantity >= scannedPromotion.quantity) {
+        Alert.alert('Error', 'This promotion has been fully claimed');
+        return;
+      }
+
+      const { data: newClaim, error: claimError } = await supabase
         .from('claimed_promotions')
         .insert({
           promotion_id: scannedPromotion.id,
           user_id: user.id,
-          scanned: true,
+          scanned: false,
           claimed_at: new Date().toISOString()
-        });
+        })
+        .single();
 
-      if (claimError) throw claimError;
+      if (claimError) {
+        console.error('Error claiming promotion:', claimError);
+        throw new Error('Failed to claim promotion');
+      }
 
-      await supabase
-        .from('promotions')
-        .update({ used_quantity: scannedPromotion.used_quantity + 1 })
-        .eq('id', scannedPromotion.id);
-
-      Alert.alert('Success', 'Promotion claimed successfully!');
+      console.log('Promotion claimed successfully:', newClaim);
+      Alert.alert('Success', 'Promotion claimed successfully');
       setModalVisible(false);
-      router.push(`/promotion-detail/${scannedPromotion.id}`);
     } catch (error) {
-      console.error('Error claiming promotion:', error);
-      Alert.alert('Error', 'Failed to claim promotion. Please try again.');
+      console.error('Error in handleClaimPromotion:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
     }
-  };
+  }, [scannedPromotion, user]);
 
   if (hasPermission === null) {
     return <ThemedText>Requesting camera permission</ThemedText>;
@@ -148,8 +180,8 @@ export default function ScanPromotionScreen() {
         <ThemedText style={styles.bottomText}>Align QR code within the frame</ThemedText>
       </View>
       {!isScanning && (
-        <TouchableOpacity 
-          style={styles.button} 
+        <TouchableOpacity
+          style={styles.button}
           onPress={() => setIsScanning(true)}
           disabled={isScanning}
         >
@@ -165,12 +197,16 @@ export default function ScanPromotionScreen() {
         onRequestClose={() => {
           setModalVisible(false);
           setIsScanning(true);
+
         }}
       >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
             {scannedPromotion && (
               <>
+                <ThemedText style={styles.claimedText}>
+                  Promotion successfully claimed!
+                </ThemedText>
                 <Image
                   source={{ uri: scannedPromotion.banner_url }}
                   style={styles.banner}
@@ -182,11 +218,8 @@ export default function ScanPromotionScreen() {
                   Price: ${scannedPromotion.promotional_price.toFixed(2)}
                 </ThemedText>
                 <ThemedText style={styles.quantity}>
-                  Available: {scannedPromotion.quantity - scannedPromotion.used_quantity} / {scannedPromotion.quantity}
+                  Promotion Left: {scannedPromotion.quantity - scannedPromotion.used_quantity -1} / {scannedPromotion.quantity}
                 </ThemedText>
-                <TouchableOpacity style={styles.claimButton} onPress={handleClaimPromotion}>
-                  <ThemedText style={styles.claimButtonText}>Claim Promotion</ThemedText>
-                </TouchableOpacity>
               </>
             )}
             <TouchableOpacity
@@ -210,6 +243,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'center',
+  },
+  claimedText: {
+    fontSize: 25,
+    textAlign: 'center',
+    fontWeight: 700,
+    borderColor:'green',
+    borderWidth:3,
+    margin:10,
+    padding:10,
+    marginTop: 2,
   },
   overlay: {
     flex: 1,

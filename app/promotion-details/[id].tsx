@@ -8,10 +8,10 @@ interface PromotionModalProps {
   visible: boolean;
   promotion: any; // Replace 'any' with a proper type for your promotion object
   onClose: () => void;
-  onClaim: () => void;
+  userName: string; // Add userName prop
 }
 
-export default function PromotionModal({ visible, promotion, onClose, onClaim }: PromotionModalProps) {
+export default function PromotionModal({ visible, promotion, onClose, userName }: PromotionModalProps) {
   if (!promotion) return null;
 
   return (
@@ -23,6 +23,9 @@ export default function PromotionModal({ visible, promotion, onClose, onClaim }:
     >
       <View style={styles.centeredView}>
         <ThemedView style={styles.modalView}>
+          <ThemedText style={styles.claimedText}>
+            Promotion successfully claimed!
+          </ThemedText>
           <Image
             source={{ uri: promotion.banner_url }}
             style={styles.banner}
@@ -39,9 +42,6 @@ export default function PromotionModal({ visible, promotion, onClose, onClaim }:
           </View>
           
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={[styles.button, styles.claimButton]} onPress={onClaim}>
-              <ThemedText style={styles.buttonText}>Claim Promotion</ThemedText>
-            </TouchableOpacity>
             <TouchableOpacity style={[styles.button, styles.closeButton]} onPress={onClose}>
               <ThemedText style={styles.buttonText}>Close</ThemedText>
             </TouchableOpacity>
@@ -75,6 +75,13 @@ const styles = StyleSheet.create({
     elevation: 5,
     width: '90%',
   },
+  claimedText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
   banner: {
     width: '100%',
     height: 150,
@@ -107,7 +114,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     width: '100%',
   },
   button: {
@@ -115,9 +122,6 @@ const styles = StyleSheet.create({
     padding: 10,
     elevation: 2,
     minWidth: 100,
-  },
-  claimButton: {
-    backgroundColor: Colors.light.primary,
   },
   closeButton: {
     backgroundColor: Colors.light.text,
