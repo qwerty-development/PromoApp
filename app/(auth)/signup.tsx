@@ -1,377 +1,280 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react';
 import {
-	View,
-	TextInput,
-	TouchableOpacity,
-	StyleSheet,
-	Text,
-	Animated,
-	Dimensions,
-	Image,
-	KeyboardAvoidingView,
-	Platform,
-	Keyboard,
-	Alert
-} from 'react-native'
-import { useRouter } from 'expo-router'
-import { supabase } from '@/lib/supabase'
-import { LinearGradient } from 'expo-linear-gradient'
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+  Animated,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  Alert,
+  ScrollView,
+  useColorScheme,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../constants/Colors';
 
-const { width, height } = Dimensions.get('window')
-
-const flyingItems = [
-	'👕',
-	'🎮',
-	'☂️',
-	'🧦',
-	'👜',
-	'📱',
-	'🎧',
-	'👟',
-	'👓',
-	'🧥',
-	'💼',
-	'📚',
-	'🖥️',
-	'💻',
-	'⌚',
-	'📷',
-	'🎒',
-	'🎩',
-	'💄',
-	'💍',
-	'🎿',
-	'🏀',
-	'⚽',
-	'🏆',
-	'🥾',
-	'👗',
-	'🕶️',
-	'👠',
-	'🧣',
-	'🧢',
-	'📀',
-	'🎸',
-	'🎺',
-	'🎻',
-	'🏓',
-	'🏹',
-	'🚲',
-	'🛴',
-	'🚗',
-	'🛵'
-]
+const { width, height } = Dimensions.get('window');
 
 export default function SignupScreen() {
-	const [email, setEmail] = useState('')
-	const [password, setPassword] = useState('')
-	const [confirmPassword, setConfirmPassword] = useState('')
-	const [contactNumber, setContactNumber] = useState('')
-	const [name, setName] = useState('')
-	const [loading, setLoading] = useState(false)
-	const [isKeyboardVisible, setKeyboardVisible] = useState(false)
-	const router = useRouter()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const router = useRouter();
 
-	const animatedValues = useRef(
-		flyingItems.map(() => new Animated.Value(0))
-	).current
-	const fadeAnim = useRef(new Animated.Value(0)).current
-	const slideAnim = useRef(new Animated.Value(height)).current
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(height)).current;
 
-	useEffect(() => {
-		const keyboardDidShowListener = Keyboard.addListener(
-			'keyboardDidShow',
-			() => setKeyboardVisible(true)
-		)
-		const keyboardDidHideListener = Keyboard.addListener(
-			'keyboardDidHide',
-			() => setKeyboardVisible(false)
-		)
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
-		Animated.parallel([
-			Animated.timing(fadeAnim, {
-				toValue: 1,
-				duration: 1000,
-				useNativeDriver: true
-			}),
-			Animated.spring(slideAnim, {
-				toValue: 0,
-				tension: 20,
-				friction: 7,
-				useNativeDriver: true
-			})
-		]).start()
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
 
-		return () => {
-			keyboardDidShowListener.remove()
-			keyboardDidHideListener.remove()
-		}
-	}, [])
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 20,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-	useEffect(() => {
-		if (!isKeyboardVisible) {
-			const animations = animatedValues.map(value =>
-				Animated.loop(
-					Animated.timing(value, {
-						toValue: 1,
-						duration: 10000 + Math.random() * 15000,
-						delay: Math.random() * 1000,
-						useNativeDriver: true
-					})
-				)
-			)
-			Animated.stagger(500, animations).start()
-		} else {
-			animatedValues.forEach(value => value.stopAnimation())
-		}
-	}, [isKeyboardVisible])
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
-	async function handleSignup() {
-		if (password !== confirmPassword) {
-			Alert.alert('Error', 'Passwords do not match')
-			return
-		}
+  async function handleSignup() {
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
 
-		setLoading(true)
-		try {
-			const { data, error } = await supabase.auth.signUp({
-				email,
-				password,
-				options: {
-					emailRedirectTo: `${process.env.EXPO_PUBLIC_APP_SCHEME}://confirm-email`
-				}
-			})
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${process.env.EXPO_PUBLIC_APP_SCHEME}://confirm-email`
+        }
+      });
 
-			if (error) throw error
+      if (error) throw error;
 
-			if (data.user) {
-				// Insert the user into the users table with a pending status
-				const { error: insertError } = await supabase.from('users').insert({
-					id: data.user.id,
-					email: data.user.email,
-					status: 'pending',
-					contact_number: contactNumber,
-					name: name,
-					created_at: new Date().toISOString()
-				})
+      if (data.user) {
+        const { error: insertError } = await supabase.from('users').insert({
+          id: data.user.id,
+          email: data.user.email,
+          status: 'pending',
+          contact_number: contactNumber,
+          name: name,
+          created_at: new Date().toISOString()
+        });
 
-				if (insertError) throw insertError
+        if (insertError) throw insertError;
 
-				// Redirect to the email confirmation page
-				router.replace('/confirm-email')
-			}
-		} catch (error) {
-			console.error('Signup error:', error)
-			let errorMessage = 'An unexpected error occurred'
-			if (error instanceof Error) {
-				errorMessage = error.message
-			}
-			Alert.alert('Error', errorMessage)
-		} finally {
-			setLoading(false)
-		}
-	}
+        router.replace('/confirm-email');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      let errorMessage = 'An unexpected error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-	return (
-		<KeyboardAvoidingView
-			style={styles.container}
-			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-			<LinearGradient
-				colors={['#4c669f', '#3b5998', '#192f6a']}
-				style={StyleSheet.absoluteFillObject}
-			/>
+  const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry = false, keyboardType = 'default' }:any) => (
+    <View style={styles.inputContainer}>
+      <Ionicons name={icon} size={24} color={colors.text} style={styles.inputIcon} />
+      <TextInput
+        style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+        placeholder={placeholder}
+        placeholderTextColor={colors.text}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+      />
+    </View>
+  );
 
-			<Animated.View
-				style={[
-					styles.content,
-					{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-				]}>
-				<Image
-					source={require('../../assets/3roudat-logo.png')}
-					style={styles.logo}
-				/>
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <LinearGradient
+        colors={colorScheme === 'dark' ? 
+          [colors.background, colors.tint, colors.primary] : 
+          [colors.background, colors.tint, colors.primary]
+        }
+        style={StyleSheet.absoluteFillObject}
+      />
 
-				{!isKeyboardVisible &&
-					flyingItems.map((item, index) => {
-						const startX = Math.random() * width
-						const startY = Math.random() * height
-						const endX = Math.random() * width
-						const endY = Math.random() * height
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          <BlurView 
+            intensity={100} 
+            tint={colorScheme === 'dark' ? 'dark' : 'light'} 
+            style={styles.blurContainer}
+          >
+            <Image source={require('../../assets/3roudat-logo.png')} style={styles.logo} />
 
-						return (
-							<Animated.Text
-								key={index}
-								style={[
-									styles.flyingItem,
-									{
-										transform: [
-											{
-												translateX: animatedValues[index].interpolate({
-													inputRange: [0, 1],
-													outputRange: [startX, endX]
-												})
-											},
-											{
-												translateY: animatedValues[index].interpolate({
-													inputRange: [0, 1],
-													outputRange: [startY, endY]
-												})
-											},
-											{
-												rotate: animatedValues[index].interpolate({
-													inputRange: [0, 1],
-													outputRange: ['0deg', `${Math.random() * 360}deg`]
-												})
-											},
-											{
-												scale: animatedValues[index].interpolate({
-													inputRange: [0, 0.5, 1],
-													outputRange: [0.8, 1.2, 0.8]
-												})
-											}
-										],
-										opacity: animatedValues[index].interpolate({
-											inputRange: [0, 0.2, 0.8, 1],
-											outputRange: [0, 1, 1, 0]
-										})
-									}
-								]}>
-								{item}
-							</Animated.Text>
-						)
-					})}
+            <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
 
-				<View style={styles.formContainer}>
-					<Text style={styles.title}>Create Account</Text>
-					<TextInput
-						style={styles.input}
-						placeholder='Full Name'
-						placeholderTextColor='#A0A0A0'
-						value={name}
-						onChangeText={setName}
-						autoCapitalize='none'
-						keyboardType='ascii-capable'
-					/>
-					<TextInput
-						style={styles.input}
-						placeholder='Email'
-						placeholderTextColor='#A0A0A0'
-						value={email}
-						onChangeText={setEmail}
-						autoCapitalize='none'
-						keyboardType='email-address'
-					/>
-					<TextInput
-						style={styles.input}
-						placeholder='Password'
-						placeholderTextColor='#A0A0A0'
-						value={password}
-						onChangeText={setPassword}
-						secureTextEntry
-					/>
-					<TextInput
-						style={styles.input}
-						placeholder='Confirm Password'
-						placeholderTextColor='#A0A0A0'
-						value={confirmPassword}
-						onChangeText={setConfirmPassword}
-						secureTextEntry
-					/>
-					<TextInput
-						style={styles.input}
-						placeholder='Contact Number'
-						placeholderTextColor='#A0A0A0'
-						value={contactNumber}
-						onChangeText={setContactNumber}
-						keyboardType='phone-pad'
-					/>
-					<TouchableOpacity
-						style={[styles.button, loading && styles.buttonDisabled]}
-						onPress={handleSignup}
-						disabled={loading}>
-						<Text style={styles.buttonText}>
-							{loading ? 'Signing up...' : 'Sign Up'}
-						</Text>
-					</TouchableOpacity>
-					<TouchableOpacity onPress={() => router.push('/login')}>
-						<Text style={styles.link}>Already have an account? Log in</Text>
-					</TouchableOpacity>
-				</View>
-			</Animated.View>
-		</KeyboardAvoidingView>
-	)
+            <InputField
+              icon="person-outline"
+              placeholder="Full Name"
+              value={name}
+              onChangeText={setName}
+            />
+
+            <InputField
+              icon="mail-outline"
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+            />
+
+            <InputField
+              icon="lock-closed-outline"
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+
+            <InputField
+              icon="lock-closed-outline"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+
+            <InputField
+              icon="call-outline"
+              placeholder="Contact Number"
+              value={contactNumber}
+              onChangeText={setContactNumber}
+              keyboardType="phone-pad"
+            />
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleSignup}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>{loading ? 'Signing up...' : 'Sign Up'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.push('/login')}>
+              <Text style={[styles.link, { color: colors.tint }]}>Already have an account? Log in</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		justifyContent: 'center'
-	},
-	content: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center'
-	},
-	logo: {
-		width: 150,
-		height: 150,
-		resizeMode: 'contain',
-		marginBottom: 20
-	},
-	formContainer: {
-		width: '80%',
-		padding: 20,
-		borderRadius: 15,
-		backgroundColor: 'rgba(255, 255, 255, 0.9)',
-		shadowColor: '#000',
-		shadowOffset: {
-			width: 0,
-			height: 2
-		},
-		shadowOpacity: 0.25,
-		shadowRadius: 3.84,
-		elevation: 5
-	},
-	title: {
-		fontSize: 28,
-		fontWeight: 'bold',
-		color: '#333',
-		marginBottom: 20,
-		textAlign: 'center'
-	},
-	input: {
-		height: 50,
-		borderColor: '#DDD',
-		borderWidth: 1,
-		marginBottom: 15,
-		padding: 15,
-		borderRadius: 10,
-		backgroundColor: '#F8F8F8',
-		color: '#333'
-	},
-	button: {
-		backgroundColor: '#4c669f',
-		padding: 15,
-		borderRadius: 10,
-		alignItems: 'center'
-	},
-	buttonDisabled: {
-		backgroundColor: '#A0A0A0'
-	},
-	buttonText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: 'bold'
-	},
-	link: {
-		color: '#4c669f',
-		marginTop: 15,
-		textAlign: 'center',
-		textDecorationLine: 'underline'
-	},
-	flyingItem: {
-		position: 'absolute',
-		fontSize: 30,
-		zIndex: 0
-	}
-})
+  container: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  content: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  blurContainer: {
+    padding: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    borderBottomWidth: 1,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: Colors.light.tint,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 20,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  link: {
+    marginTop: 20,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
+});

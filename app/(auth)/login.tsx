@@ -11,21 +11,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  useColorScheme,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
-
-const flyingItems = [
-  '👕', '🎮', '☂️', '🧦', '👜', '📱', '🎧', '👟',
-  '👓', '🧥', '💼', '📚', '🖥️', '💻', '⌚', '📷',
-  '🎒', '🎩', '💄', '💍', '🎿', '🏀', '⚽', '🏆',
-  '🥾', '👗', '🕶️', '👠', '🧣', '🧢', '📀', '🎸',
-  '🎺', '🎻', '🏓', '🏹', '🚲', '🛴', '🚗', '🛵'
-];
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -33,9 +28,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
-  const animatedValues = useRef(flyingItems.map(() => new Animated.Value(0))).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(height)).current;
+
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -66,24 +63,6 @@ export default function LoginScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
-
-  useEffect(() => {
-    if (!isKeyboardVisible) {
-      const animations = animatedValues.map((value) =>
-        Animated.loop(
-          Animated.timing(value, {
-            toValue: 1,
-            duration: 10000 + Math.random() * 15000,
-            delay: Math.random() * 1000,
-            useNativeDriver: true,
-          })
-        )
-      );
-      Animated.stagger(500, animations).start();
-    } else {
-      animatedValues.forEach((value) => value.stopAnimation());
-    }
-  }, [isKeyboardVisible]);
 
   async function handleLogin() {
     setLoading(true);
@@ -134,82 +113,48 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <LinearGradient
-        colors={['#4c669f', '#3b5998', '#192f6a']}
+        colors={colorScheme === 'dark' ? 
+          [colors.background, colors.tint, colors.primary] : 
+          [colors.background, colors.tint, colors.primary]
+        }
         style={StyleSheet.absoluteFillObject}
       />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <Image source={require('../../assets/3roudat-logo.png')} style={styles.logo} />
+        <BlurView 
+          intensity={100} 
+          tint={colorScheme === 'dark' ? 'dark' : 'light'} 
+          style={styles.blurContainer}
+        >
+          <Image source={require('../../assets/3roudat-logo.png')} style={styles.logo} />
 
-        {!isKeyboardVisible && flyingItems.map((item, index) => {
-          const startX = Math.random() * width;
-          const startY = Math.random() * height;
-          const endX = Math.random() * width;
-          const endY = Math.random() * height;
+          <Text style={[styles.title, { color: colors.text }]}>Welcome Back!</Text>
 
-          return (
-            <Animated.Text
-              key={index}
-              style={[
-                styles.flyingItem,
-                {
-                  transform: [
-                    {
-                      translateX: animatedValues[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [startX, endX],
-                      }),
-                    },
-                    {
-                      translateY: animatedValues[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [startY, endY],
-                      }),
-                    },
-                    {
-                      rotate: animatedValues[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0deg', `${Math.random() * 360}deg`],
-                      }),
-                    },
-                    {
-                      scale: animatedValues[index].interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: [0.8, 1.2, 0.8],
-                      }),
-                    },
-                  ],
-                  opacity: animatedValues[index].interpolate({
-                    inputRange: [0, 0.2, 0.8, 1],
-                    outputRange: [0, 1, 1, 0],
-                  }),
-                },
-              ]}
-            >
-              {item}
-            </Animated.Text>
-          );
-        })}
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={24} color={colors.text} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+              placeholder="Email"
+              placeholderTextColor={colors.text}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
 
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Welcome Back!</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#A0A0A0"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#A0A0A0"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={24} color={colors.text} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+              placeholder="Password"
+              placeholderTextColor={colors.text}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
@@ -217,12 +162,13 @@ export default function LoginScreen() {
           >
             <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
           </TouchableOpacity>
+
           <Link href="/signup" asChild>
             <TouchableOpacity>
-              <Text style={styles.link}>Don't have an account? Sign up</Text>
+              <Text style={[styles.link, { color: colors.tint }]}>Don't have an account? Sign up</Text>
             </TouchableOpacity>
           </Link>
-        </View>
+        </BlurView>
       </Animated.View>
     </KeyboardAvoidingView>
   );
@@ -232,72 +178,63 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 400,
+  },
+  blurContainer: {
+    padding: 20,
+    borderRadius: 20,
     alignItems: 'center',
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 200,
+    height: 120,
     resizeMode: 'contain',
     marginBottom: 20,
-  },
-  formContainer: {
-    width: '80%',
-    padding: 20,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    marginBottom: 30,
     textAlign: 'center',
   },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
   input: {
+    flex: 1,
     height: 50,
-    borderColor: '#DDD',
-    borderWidth: 1,
-    marginBottom: 15,
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: '#F8F8F8',
-    color: '#333',
+    borderBottomWidth: 1,
+    fontSize: 16,
   },
   button: {
-    backgroundColor: '#4c669f',
+    backgroundColor: Colors.light.tint,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    width: '100%',
+    marginTop: 20,
   },
   buttonDisabled: {
-    backgroundColor: '#A0A0A0',
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   link: {
-    color: '#4c669f',
-    marginTop: 15,
+    marginTop: 20,
     textAlign: 'center',
     textDecorationLine: 'underline',
-  },
-  flyingItem: {
-    position: 'absolute',
-    fontSize: 30,
-    zIndex: 0,
   },
 });
