@@ -73,6 +73,16 @@ function RootLayoutNav() {
           presentation: 'modal',
         }}
       />
+            <Stack.Screen
+        name="promotion-details/[id]"
+        options={{
+          headerShown: true,
+          headerTitle: 'Scanned Promotions',
+          headerBackTitle: 'Back',
+          gestureEnabled: true,
+          presentation: 'modal',
+        }}
+      />
       <Stack.Screen
         name="edit-promotion"
         options={{

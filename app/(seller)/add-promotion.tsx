@@ -3,10 +3,10 @@ import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity,
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerEvent, Event } from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import RNPickerSelect from 'react-native-picker-select';
-
+import { useRouter } from 'expo-router';
 interface Industry {
   label: string;
   value: number;
@@ -22,7 +22,12 @@ export default function AddPromotionScreen() {
   const [bannerImage, setBannerImage] = useState<string | null>(null);
   const [industry, setIndustry] = useState<number | null>(null);
   const [industries, setIndustries] = useState<Industry[]>([]);
+  const [quantity, setQuantity] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [promotionalPrice, setPromotionalPrice] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
   const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     fetchIndustries();
@@ -37,9 +42,21 @@ export default function AddPromotionScreen() {
     }
   }
 
+  const calculateDiscountPercentage = (original: string, promotional: string) => {
+    const originalValue = parseFloat(original);
+    const promotionalValue = parseFloat(promotional);
+    if (originalValue > 0 && promotionalValue > 0) {
+      const percentage = ((originalValue - promotionalValue) / originalValue) * 100;
+      setDiscountPercentage(percentage.toFixed(2));
+    } else {
+      setDiscountPercentage('');
+    }
+  };
+
+
   async function handleAddPromotion() {
-    if (!title || !description || !industry || !bannerImage || !user) {
-      Alert.alert('Error', 'Please fill in all fields and upload a banner image.');
+    if (!title || !description || !industry || !bannerImage || !user || !quantity) {
+      Alert.alert('Error', 'Please fill in all fields, upload a banner image, and set a quantity.');
       return;
     }
 
@@ -64,38 +81,36 @@ export default function AddPromotionScreen() {
         throw new Error('Failed to get public URL');
       }
 
-      const { error: insertError } = await supabase
-        .from('promotions')
-        .insert({
-          title,
-          description,
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          seller_id: user.id,
-          industry_id: industry,
-          banner_url: publicFile.publicUrl,
-          is_approved: false,
-        });
+      const { data: promotionData, error: insertError } = await supabase
+      .from('promotions')
+      .insert({
+        title,
+        description,
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        seller_id: user.id,
+        industry_id: industry,
+        banner_url: publicFile.publicUrl,
+        is_approved: false,
+        quantity: parseInt(quantity),
+        used_quantity: 0,
+        unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        original_price: originalPrice ? parseFloat(originalPrice) : null,
+        promotional_price: parseFloat(promotionalPrice),
+      })
+      .select()
+      .single();
 
-      if (insertError) {
-        throw new Error(insertError.message);
-      }
-
-      Alert.alert('Success', 'Promotion added successfully');
-      resetForm();
-    } catch (error) {
-      Alert.alert('Error', (error as Error).message);
+    if (insertError) {
+      throw new Error(insertError.message);
     }
-  }
 
-  function resetForm() {
-    setTitle('');
-    setDescription('');
-    setStartDate(new Date());
-    setEndDate(new Date());
-    setBannerImage(null);
-    setIndustry(null);
+    Alert.alert('Success', 'Promotion added successfully');
+    router.back();
+  } catch (error) {
+    Alert.alert('Error', (error as Error).message);
   }
+}
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -163,6 +178,40 @@ export default function AddPromotionScreen() {
       </View>
 
       <View style={styles.inputContainer}>
+        <Text style={styles.label}>Original Price (Optional):</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter original price"
+          value={originalPrice}
+          onChangeText={(text) => {
+            setOriginalPrice(text);
+            calculateDiscountPercentage(text, promotionalPrice);
+          }}
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Promotional Price:</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter promotional price"
+          value={promotionalPrice}
+          onChangeText={(text) => {
+            setPromotionalPrice(text);
+            calculateDiscountPercentage(originalPrice, text);
+          }}
+          keyboardType="numeric"
+        />
+      </View>
+
+      {discountPercentage && (
+        <View style={styles.discountContainer}>
+          <Text style={styles.discountText}>Discount: {discountPercentage}%</Text>
+        </View>
+      )}
+
+      <View style={styles.inputContainer}>
         <Text style={styles.label}>Start Date:</Text>
         <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
           <Text>{startDate.toDateString()}</Text>
@@ -190,6 +239,17 @@ export default function AddPromotionScreen() {
             onChange={onChangeEndDate}
           />
         )}
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Quantity:</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter promotion quantity"
+          value={quantity}
+          onChangeText={setQuantity}
+          keyboardType="numeric"
+        />
       </View>
 
       <View style={styles.inputContainer}>
@@ -245,13 +305,6 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-  picker: {
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
-    backgroundColor: 'white',
-  },
   dateButton: {
     height: 50,
     borderColor: '#ddd',
@@ -292,7 +345,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-
+  discountContainer: {
+    backgroundColor: '#e6f7ff',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  discountText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+  },
 });
 
 const pickerSelectStyles = StyleSheet.create({
@@ -304,7 +367,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 10,
     color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    paddingRight: 30,
     backgroundColor: 'white',
   },
   inputAndroid: {
@@ -315,9 +378,7 @@ const pickerSelectStyles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 10,
     color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    paddingRight: 30,
     backgroundColor: 'white',
   },
-})
-
-
+});

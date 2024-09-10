@@ -24,13 +24,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="my-qr-codes"
+        options={{
+          headerShown: true,
+          headerTitle: 'My QR Codes',
+          title: 'My QR Codes',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'qr-code' : 'qr-code-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           headerShown: true,
           headerTitle: 'Profile',
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'man' : 'man'} color={color} />
+            <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} />
           ),
         }}
       />

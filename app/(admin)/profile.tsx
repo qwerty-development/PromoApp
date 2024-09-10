@@ -48,8 +48,8 @@ export default function AdminProfileScreen() {
     const { error } = await supabase
       .from('users')
       .update({
-        full_name: fullName,
-        phone_number: phoneNumber,
+        name: fullName,
+        contact_number: phoneNumber,
       })
       .eq('id', user.id);
 

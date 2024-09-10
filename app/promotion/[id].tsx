@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Linking, Image, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { StyleSheet, Linking, Image, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from 'react-native';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Promotion {
-  id: number;
+  id: string;
   title: string;
   description: string;
   start_date: string;
   end_date: string;
   banner_url: string;
+  quantity: number;
+  used_quantity: number;
+  original_price: number | null;
+  promotional_price: number;
   seller: {
     contact_number: string;
     latitude: number;
@@ -27,11 +32,15 @@ interface Promotion {
 export default function PromotionDetailScreen() {
   const { id } = useLocalSearchParams();
   const [promotion, setPromotion] = useState<Promotion | null>(null);
+  const [isClaimed, setIsClaimed] = useState(false);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     fetchPromotionDetails();
+    checkIfClaimed();
   }, [id]);
 
   async function fetchPromotionDetails() {
@@ -51,6 +60,23 @@ export default function PromotionDetailScreen() {
     }
   }
 
+  async function checkIfClaimed() {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('claimed_promotions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('promotion_id', id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking claimed status:', error);
+    } else {
+      setIsClaimed(!!data);
+    }
+  }
+
   const handleCallSeller = () => {
     if (promotion?.seller.contact_number) {
       Linking.openURL(`tel:${promotion.seller.contact_number}`);
@@ -64,15 +90,67 @@ export default function PromotionDetailScreen() {
     return data?.publicUrl;
   };
 
+  async function handleClaimPromotion() {
+    if (!user || !promotion) return;
+
+    if (promotion.used_quantity >= promotion.quantity) {
+      Alert.alert('Sorry', 'This promotion has reached its usage limit.');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('claimed_promotions')
+        .insert({
+          user_id: user.id,
+          promotion_id: promotion.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update the promotion's used_quantity
+      const { error: updateError } = await supabase
+        .from('promotions')
+        .update({ used_quantity: promotion.used_quantity + 1 })
+        .eq('id', promotion.id);
+
+      if (updateError) throw updateError;
+
+      // Update user's analytics
+      const moneySaved = promotion.original_price
+        ? promotion.original_price - promotion.promotional_price
+        : 0;
+      const { error: analyticsError } = await supabase.rpc('update_user_analytics', {
+        user_id: user.id,
+        items_bought: 1,
+        money_saved: moneySaved,
+        money_spent: promotion.promotional_price,
+      });
+
+      if (analyticsError) throw analyticsError;
+
+      setIsClaimed(true);
+      Alert.alert('Success', 'Promotion claimed successfully!');
+      router.push('/my-qr-codes');
+    } catch (error) {
+      console.error('Error claiming promotion:', error);
+      Alert.alert('Error', 'Failed to claim promotion. Please try again.');
+    }
+  }
+
+
   if (!promotion) {
     return <ThemedText>Loading...</ThemedText>;
   }
 
   const bannerUrl = getPublicUrl(promotion.banner_url);
   const businessLogoUrl = getPublicUrl(promotion.seller.business_logo);
+  const remainingQuantity = promotion.quantity - promotion.used_quantity;
 
   return (
-    <ThemedView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {bannerUrl && (
         <Image
           source={{ uri: bannerUrl }}
@@ -80,7 +158,7 @@ export default function PromotionDetailScreen() {
           resizeMode="cover"
         />
       )}
-      
+
       <View style={styles.businessInfoContainer}>
         {businessLogoUrl && (
           <Image
@@ -89,14 +167,29 @@ export default function PromotionDetailScreen() {
             resizeMode="contain"
           />
         )}
-        <ThemedText style={styles.businessName}>{promotion.seller.business_name}</ThemedText>
+        <ThemedText style={[styles.businessName, { color: colors.text }]}>{promotion.seller.business_name}</ThemedText>
       </View>
+ 
 
-      <ThemedText style={[styles.title, { color: colors.primary }]}>{promotion.title}</ThemedText>
-      <ThemedText style={styles.description}>{promotion.description}</ThemedText>
-      <ThemedText style={styles.dates}>
+      <ThemedText style={[styles.quantity, { color: colors.text }]}>
+        Remaining: {remainingQuantity} / {promotion.quantity}
+      </ThemedText>
+      <ThemedText style={[styles.dates, { color: colors.text }]}>
         {new Date(promotion.start_date).toLocaleDateString()} - {new Date(promotion.end_date).toLocaleDateString()}
       </ThemedText>
+      <ThemedText style={[styles.title, { color: colors.primary }]}>{promotion.title}</ThemedText>
+      <ThemedText style={[styles.description, { color: colors.text }]}>{promotion.description}</ThemedText>
+      
+      <View style={styles.priceContainer}>
+        {promotion.original_price && (
+          <ThemedText style={[styles.originalPrice, { color: colors.text }]}>
+            Original Price: ${promotion.original_price.toFixed(2)}
+          </ThemedText>
+        )}
+        <ThemedText style={[styles.promotionalPrice, { color: colors.primary }]}>
+          Promotional Price: ${promotion.promotional_price.toFixed(2)}
+        </ThemedText>
+      </View>
       <MapView
         style={styles.map}
         initialRegion={{
@@ -114,13 +207,31 @@ export default function PromotionDetailScreen() {
           title={promotion.seller.business_name}
         />
       </MapView>
-      <ThemedText style={styles.locationInfo}>
+      <ThemedText style={[styles.locationInfo, { color: colors.text }]}>
         Location: {promotion.seller.latitude.toFixed(6)}, {promotion.seller.longitude.toFixed(6)}
       </ThemedText>
-      <ThemedText style={styles.contactInfo} onPress={handleCallSeller}>
-        Contact Seller: {promotion.seller.contact_number}
-      </ThemedText>
-    </ThemedView>
+      <TouchableOpacity onPress={handleCallSeller}>
+        <ThemedText style={[styles.contactInfo, { color: colors.primary }]}>
+          Contact Seller: {promotion.seller.contact_number}
+        </ThemedText>
+      </TouchableOpacity>
+
+      {!isClaimed && remainingQuantity > 0 && (
+        <TouchableOpacity style={[styles.claimButton, { backgroundColor: colors.primary }]} onPress={handleClaimPromotion}>
+          <ThemedText style={styles.claimButtonText}>Claim Promotion</ThemedText>
+        </TouchableOpacity>
+      )}
+
+      {isClaimed && (
+        <ThemedText style={[styles.claimedText, { color: colors.primary }]}>
+          You've already claimed this promotion!
+        </ThemedText>
+      )}
+
+      {remainingQuantity <= 0 && (
+        <ThemedText style={styles.soldOutText}>This promotion is sold out!</ThemedText>
+      )}
+    </ScrollView>
   );
 }
 
@@ -162,6 +273,11 @@ const styles = StyleSheet.create({
   dates: {
     fontSize: 14,
     fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  quantity: {
+    fontSize: 14,
+    fontWeight: 'bold',
     marginBottom: 16,
   },
   map: {
@@ -176,5 +292,40 @@ const styles = StyleSheet.create({
   contactInfo: {
     fontSize: 16,
     textDecorationLine: 'underline',
+    marginBottom: 16,
+  },
+  claimButton: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  claimButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  claimedText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  soldOutText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  priceContainer: {
+    marginBottom: 16,
+  },
+  originalPrice: {
+    fontSize: 16,
+    textDecorationLine: 'line-through',
+    marginBottom: 4,
+  },
+  promotionalPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });

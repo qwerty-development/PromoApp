@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Stack } from 'expo-router';
 import React from 'react';
 import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import { Colors } from '@/constants/Colors';
@@ -17,9 +17,9 @@ export default function SellerTabsLayout() {
         name="index"
         options={{
           headerShown: true,
-          title: 'Home',
+          title: 'My Promotions',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
+            <TabBarIcon name={focused ? 'list' : 'list-outline'} color={color} />
           ),
         }}
       />
@@ -34,7 +34,17 @@ export default function SellerTabsLayout() {
           ),
         }}
       />
-      
+      <Tabs.Screen
+        name="scan-promotion"
+        options={{
+          headerShown: true,
+          headerTitle: 'Scan Promotion',
+          title: 'Scan',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'qr-code' : 'qr-code-outline'} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -44,6 +54,14 @@ export default function SellerTabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} />
           ),
+        }}
+      />
+
+      {/* Nested stack for promotion details and editing */}
+      <Tabs.Screen
+        name="promotion"
+        options={{
+          href: null, // This screen won't appear in the tab bar
         }}
       />
     </Tabs>
