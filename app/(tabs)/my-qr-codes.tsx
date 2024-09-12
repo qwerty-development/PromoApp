@@ -8,16 +8,19 @@ import {
   Dimensions,
   RefreshControl,
   useColorScheme,
-  Platform
+  Image,
+  Animated
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import QRCode from 'react-native-qrcode-svg';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors, ColorScheme } from '@/constants/Colors';
-import { format } from 'date-fns'; // Make sure to install this package
+import { format, differenceInDays } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 interface ClaimedPromotion {
   id: string;
@@ -29,6 +32,7 @@ interface ClaimedPromotion {
   expiry_date: string;
   original_price: number;
   promotional_price: number;
+  banner_url: string;
 }
 
 const { width } = Dimensions.get('window');
@@ -57,7 +61,8 @@ export default function MyQRCodesScreen() {
           unique_code,
           end_date,
           original_price,
-          promotional_price
+          promotional_price,
+          banner_url
         )
       `)
       .eq('user_id', user.id);
@@ -74,7 +79,8 @@ export default function MyQRCodesScreen() {
         claimed_at: item.claimed_at,
         expiry_date: item.promotions.end_date,
         original_price: item.promotions.original_price,
-        promotional_price: item.promotions.promotional_price
+        promotional_price: item.promotions.promotional_price,
+        banner_url: item.promotions.banner_url
       })));
     }
     setRefreshing(false);
@@ -97,39 +103,62 @@ export default function MyQRCodesScreen() {
 
   const renderPromotion = ({ item }: { item: ClaimedPromotion }) => {
     const discountPercentage = ((item.original_price - item.promotional_price) / item.original_price) * 100;
+    const daysUntilExpiry = differenceInDays(new Date(item.expiry_date), new Date());
     
     return (
-      <TouchableOpacity 
-        style={[styles.promotionItem, { backgroundColor: colors.card }]}
-        onPress={() => setSelectedPromotion(item)}
-      >
-        <View style={styles.promotionContent}>
-          <ThemedText style={[styles.promotionTitle, { color: colors.text }]}>{item.title}</ThemedText>
-          <ThemedText style={[styles.promotionDescription, { color: colors.tabIconDefault }]} numberOfLines={2}>
-            {item.description}
-          </ThemedText>
-          <View style={styles.promotionDetails}>
-            <ThemedText style={[styles.promotionPrice, { color: colors.text }]}>
-              ${item.promotional_price.toFixed(2)}
-            </ThemedText>
-            <ThemedText style={[styles.promotionDiscount, { color: colors.success }]}>
-              {discountPercentage.toFixed(0)}% OFF
-            </ThemedText>
+      <Animated.View style={styles.promotionItemContainer}>
+        <TouchableOpacity 
+          style={[styles.promotionItem, { backgroundColor: colors.card }]}
+          onPress={() => setSelectedPromotion(item)}
+        >
+          <View style={styles.promotionImageContainer}>
+            <Image 
+              source={{ uri: item.banner_url }} 
+              style={styles.promotionImage}
+            />
+            <View style={styles.promotionImageOverlay} />
           </View>
-          <ThemedText style={[styles.promotionDate, { color: colors.tabIconDefault }]}>
-            Expires: {format(new Date(item.expiry_date), 'MMM dd, yyyy')}
-          </ThemedText>
-        </View>
-        <View style={styles.promotionStatus}>
-          <ThemedText style={[
-            styles.statusText, 
-            { color: item.scanned ? colors.success : colors.primary }
-          ]}>
-            {item.scanned ? 'Claimed' : 'Pending'}
-          </ThemedText>
-          <Ionicons name="chevron-forward" size={24} color={colors.tabIconDefault} />
-        </View>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.promotionGradient}
+          >
+            <View style={styles.promotionContent}>
+              <ThemedText style={[styles.promotionTitle, { color: colors.background }]} numberOfLines={2}>
+                {item.title}
+              </ThemedText>
+              <View style={styles.promotionDetails}>
+                <View style={styles.priceContainer}>
+                  <ThemedText style={[styles.promotionPrice, { color: colors.background }]}>
+                    ${item.promotional_price.toFixed(2)}
+                  </ThemedText>
+                  <ThemedText style={[styles.originalPrice, { color: colors.background }]}>
+                    ${item.original_price.toFixed(2)}
+                  </ThemedText>
+                </View>
+                <View style={[styles.discountTag, { backgroundColor: colors.accent }]}>
+                  <ThemedText style={[styles.promotionDiscount, { color: colors.background }]}>
+                    {discountPercentage.toFixed(0)}% OFF
+                  </ThemedText>
+                </View>
+              </View>
+              <View style={styles.promotionFooter}>
+                <View style={[styles.expiryTag, { backgroundColor: daysUntilExpiry <= 3 ? colors.error : colors.success }]}>
+                  <FontAwesome5 name="clock" size={12} color={colors.background} />
+                  <ThemedText style={[styles.expiryText, { color: colors.background }]}>
+                    {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                  </ThemedText>
+                </View>
+                <View style={[styles.statusTag, { backgroundColor: item.scanned ? colors.success : colors.primary }]}>
+                  <FontAwesome5 name={item.scanned ? "check-circle" : "hourglass-half"} size={12} color={colors.background} />
+                  <ThemedText style={[styles.statusText, { color: colors.background }]}>
+                    {item.scanned ? 'Claimed' : 'Pending'}
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
@@ -139,8 +168,7 @@ export default function MyQRCodesScreen() {
         <TouchableOpacity 
           style={[
             styles.tab, 
-            activeTab === 'pending' && styles.activeTab,
-            { borderBottomColor: colors.primary }
+            activeTab === 'pending' && [styles.activeTab, { borderBottomColor: colors.primary }]
           ]}
           onPress={() => setActiveTab('pending')}
         >
@@ -154,8 +182,7 @@ export default function MyQRCodesScreen() {
         <TouchableOpacity 
           style={[
             styles.tab, 
-            activeTab === 'claimed' && styles.activeTab,
-            { borderBottomColor: colors.primary }
+            activeTab === 'claimed' && [styles.activeTab, { borderBottomColor: colors.primary }]
           ]}
           onPress={() => setActiveTab('claimed')}
         >
@@ -174,9 +201,12 @@ export default function MyQRCodesScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
-          <ThemedText style={[styles.emptyText, { color: colors.tabIconDefault }]}>
-            No {activeTab} promotions found.
-          </ThemedText>
+          <View style={styles.emptyContainer}>
+            <FontAwesome5 name="qrcode" size={64} color={colors.tabIconDefault} />
+            <ThemedText style={[styles.emptyText, { color: colors.tabIconDefault }]}>
+              No {activeTab} promotions found.
+            </ThemedText>
+          </View>
         }
         refreshControl={
           <RefreshControl 
@@ -194,13 +224,13 @@ export default function MyQRCodesScreen() {
         visible={selectedPromotion !== null}
         onRequestClose={() => setSelectedPromotion(null)}
       >
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+        <BlurView intensity={100} style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setSelectedPromotion(null)}
             >
-              <Ionicons name="close" size={24} color={colors.text} />
+              <FontAwesome5 name="times" size={24} color={colors.text} />
             </TouchableOpacity>
             {selectedPromotion && (
               <>
@@ -209,26 +239,38 @@ export default function MyQRCodesScreen() {
                 </ThemedText>
                 <QRCode
                   value={selectedPromotion.unique_code}
-                  size={width * 0.6}
+                  size={width * 0.5}
                   color={colors.text}
-                  backgroundColor={colors.background}
+                  backgroundColor={colors.card}
                 />
-                <ThemedText style={[styles.modalPrice, { color: colors.text }]}>
-                  Price: ${selectedPromotion.promotional_price.toFixed(2)}
-                </ThemedText>
+                <View style={styles.modalPriceContainer}>
+                  <ThemedText style={[styles.modalPrice, { color: colors.text }]}>
+                    ${selectedPromotion.promotional_price.toFixed(2)}
+                  </ThemedText>
+                  <ThemedText style={[styles.modalOriginalPrice, { color: colors.tabIconDefault }]}>
+                    ${selectedPromotion.original_price.toFixed(2)}
+                  </ThemedText>
+                </View>
                 <ThemedText style={[styles.modalDate, { color: colors.tabIconDefault }]}>
                   Expires: {format(new Date(selectedPromotion.expiry_date), 'MMM dd, yyyy')}
                 </ThemedText>
-                <ThemedText style={[
+                <View style={[
                   styles.modalStatus, 
-                  { color: selectedPromotion.scanned ? colors.success : colors.primary }
+                  { backgroundColor: selectedPromotion.scanned ? colors.success : colors.primary }
                 ]}>
-                  Status: {selectedPromotion.scanned ? 'Claimed' : 'Pending'}
-                </ThemedText>
+                  <FontAwesome5 
+                    name={selectedPromotion.scanned ? "check-circle" : "hourglass-half"} 
+                    size={16} 
+                    color={colors.background} 
+                  />
+                  <ThemedText style={[styles.modalStatusText, { color: colors.background }]}>
+                    {selectedPromotion.scanned ? 'Claimed' : 'Pending'}
+                  </ThemedText>
+                </View>
               </>
             )}
           </View>
-        </View>
+        </BlurView>
       </Modal>
     </ThemedView>
   );
@@ -264,84 +306,131 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 20,
   },
+  promotionItemContainer: {
+    marginBottom: 20,
+  },
   promotionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 5,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5,
+  },
+  promotionImageContainer: {
+    position: 'relative',
+  },
+  promotionImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  promotionImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  promotionGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    justifyContent: 'flex-end',
+    padding: 15,
   },
   promotionContent: {
     flex: 1,
-    marginRight: 10,
   },
   promotionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    marginBottom: 5,
-  },
-  promotionDescription: {
-    fontSize: 14,
     marginBottom: 5,
   },
   promotionDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   promotionPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginRight: 10,
+    marginRight: 5,
+  },
+  originalPrice: {
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    opacity: 0.7,
+  },
+  discountTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   promotionDiscount: {
     fontSize: 14,
     fontWeight: '500',
   },
-  promotionDate: {
-    fontSize: 12,
+  promotionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  promotionStatus: {
-    alignItems: 'flex-end',
+  expiryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  expiryText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  statusTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
-    marginBottom: 5,
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: 20,
     fontSize: 16,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     borderRadius: 20,
-    padding: 35,
+    padding: 25,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-    width: width * 0.8,
+    width: width * 0.85,
+    maxHeight: '80%',
   },
   closeButton: {
     position: 'absolute',
@@ -349,29 +438,47 @@ const styles = StyleSheet.create({
     top: 15,
     zIndex: 1,
   },
+  modalImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
-  modalDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 15,
+  modalPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
     marginBottom: 10,
   },
   modalPrice: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '600',
-    marginBottom: 5,
+    marginRight: 10,
+  },
+  modalOriginalPrice: {
+    fontSize: 18,
+    textDecorationLine: 'line-through',
   },
   modalDate: {
-    fontSize: 14,
-    marginBottom: 10,
+    fontSize: 16,
+    marginBottom: 20,
   },
   modalStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  modalStatusText: {
     fontSize: 16,
     fontWeight: '500',
+    marginLeft: 8,
   },
 });

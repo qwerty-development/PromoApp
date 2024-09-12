@@ -1,39 +1,39 @@
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#FFFFFF',
-    card:'#F2F3F4',
-    primary: '#FF6B6B',
-    secondary: '#4ECDC4',
-    accent: '#FFD93D',
-    tint: '#0a7ea4',
-    tabIconDefault: '#687076',
-    tabIconSelected: '#0a7ea4',
-    border: '#E0E0E0',
-    shadow: '#B0B0B0',
-    overlay: 'rgba(0, 0, 0, 0.1)',
-    success: '#28A745',
-    error: '#DC3545',
-    warning: '#FFC107',
-    info: '#17A2B8',
+    text: '#2C3E50',         // Dark slate gray for primary text
+    background: '#F5F7FA',   // Light grayish blue for background
+    card: '#FFFFFF',         // Pure white for cards
+    primary: '#34495E',      // Dark slate blue for primary elements
+    secondary: '#3498DB',    // Bright blue for secondary elements
+    accent: '#E67E22',       // Soft orange for accents
+    tint: '#16A085',         // Sea green for tints
+    tabIconDefault: '#95A5A6',  // Grayish cyan for default icons
+    tabIconSelected: '#2980B9', // Strong blue for selected icons
+    border: '#E0E6ED',       // Light grayish blue for borders
+    shadow: '#BDC3C7',       // Light grayish cyan for shadows
+    overlay: 'rgba(44, 62, 80, 0.1)', // Subtle dark overlay
+    success: '#27AE60',      // Emerald green for success states
+    error: '#E74C3C',        // Soft red for error states
+    warning: '#F39C12',      // Orange for warning states
+    info: '#2980B9',         // Strong blue for info states
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    primary: '#FF6B6B',
-    card:'#505050',
-    secondary: '#4ECDC4',
-    accent: '#FFD93D',
-    tint: '#FFFFFF',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: '#0a7ea4',
-    border: '#333333',
-    shadow: '#000000',
-    overlay: 'rgba(255, 255, 255, 0.1)',
-    success: '#28A745',
-    error: '#DC3545',
-    warning: '#FFC107',
-    info: '#17A2B8',
+    text: '#ECF0F1',         // Very light grayish blue for text
+    background: '#2C3E50',   // Dark slate gray for background
+    card: '#34495E',         // Dark slate blue for cards
+    primary: '#3498DB',      // Bright blue for primary elements
+    secondary: '#1ABC9C',    // Turquoise for secondary elements
+    accent: '#E67E22',       // Soft orange for accents (same as light for consistency)
+    tint: '#2ECC71',         // Emerald green for tints
+    tabIconDefault: '#95A5A6',  // Grayish cyan for default icons
+    tabIconSelected: '#E74C3C', // Soft red for selected icons
+    border: '#465C6E',       // Darker grayish blue for borders
+    shadow: '#1A252F',       // Very dark grayish blue for shadows
+    overlay: 'rgba(236, 240, 241, 0.1)', // Subtle light overlay
+    success: '#27AE60',      // Emerald green for success states (same as light)
+    error: '#E74C3C',        // Soft red for error states (same as light)
+    warning: '#F39C12',      // Orange for warning states (same as light)
+    info: '#3498DB',         // Bright blue for info states
   },
 };
 

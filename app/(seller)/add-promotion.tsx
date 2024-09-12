@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,28 @@ interface Industry {
   value: number;
 }
 
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  multiline?: boolean;
+  numberOfLines?: number;
+  keyboardType?: 'default' | 'numeric' | 'email-address';
+  style?: object;
+}
+
+const InputField: React.FC<InputFieldProps> = ({ label, ...props }) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.label}>{label}</Text>
+    <TextInput
+      style={[styles.input, props.style]}
+      placeholderTextColor="#999"
+      {...props}
+    />
+  </View>
+);
+
 export default function AddPromotionScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -46,16 +68,16 @@ export default function AddPromotionScreen() {
     fetchIndustries();
   }, []);
 
-  async function fetchIndustries() {
+  const fetchIndustries = async () => {
     const { data, error } = await supabase.from('industries').select('*');
     if (error) {
       console.error('Error fetching industries:', error);
     } else if (data) {
       setIndustries(data.map(ind => ({ label: ind.name, value: ind.id })));
     }
-  }
+  };
 
-  const calculateDiscountPercentage = (original: string, promotional: string) => {
+  const calculateDiscountPercentage = useCallback((original: string, promotional: string) => {
     const originalValue = parseFloat(original);
     const promotionalValue = parseFloat(promotional);
     if (originalValue > 0 && promotionalValue > 0) {
@@ -64,9 +86,9 @@ export default function AddPromotionScreen() {
     } else {
       setDiscountPercentage('');
     }
-  };
+  }, []);
 
-  async function handleAddPromotion() {
+  const handleAddPromotion = async () => {
     if (!title || !description || !industry || !bannerImage || !user || !quantity) {
       Alert.alert('Error', 'Please fill in all fields, upload a banner image, and set a quantity.');
       return;
@@ -93,7 +115,7 @@ export default function AddPromotionScreen() {
         throw new Error('Failed to get public URL');
       }
 
-      const { data: promotionData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('promotions')
         .insert({
           title,
@@ -109,9 +131,7 @@ export default function AddPromotionScreen() {
           unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           original_price: originalPrice ? parseFloat(originalPrice) : null,
           promotional_price: parseFloat(promotionalPrice),
-        })
-        .select()
-        .single();
+        });
 
       if (insertError) {
         throw new Error(insertError.message);
@@ -122,10 +142,10 @@ export default function AddPromotionScreen() {
     } catch (error) {
       Alert.alert('Error', (error as Error).message);
     }
-  }
+  };
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
@@ -147,7 +167,7 @@ export default function AddPromotionScreen() {
     const currentDate = selectedDate || endDate;
     setShowEndPicker(false);
     setEndDate(currentDate);
-  }
+  };
 
   return (
     <KeyboardAvoidingView 
@@ -157,10 +177,10 @@ export default function AddPromotionScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <LinearGradient
-          colors={['#FF6B6B', '#FF6B6B']}
+          colors={['#4a90e2', '#63b3ed']}
           style={styles.header}
         >
-          <Ionicons name="add-circle-outline" size={80} color="#ffffff" />
+          <Ionicons name="add-circle-outline" size={60} color="#ffffff" />
           <Text style={styles.headerText}>Create New Promotion</Text>
         </LinearGradient>
 
@@ -182,7 +202,7 @@ export default function AddPromotionScreen() {
           />
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Industry:</Text>
+            <Text style={styles.label}>Industry</Text>
             <RNPickerSelect
               onValueChange={(value: number | null) => setIndustry(value)}
               items={industries}
@@ -196,7 +216,7 @@ export default function AddPromotionScreen() {
             <InputField
               label="Original Price"
               value={originalPrice}
-              onChangeText={(text: React.SetStateAction<string>) => {
+              onChangeText={(text: string) => {
                 setOriginalPrice(text);
                 calculateDiscountPercentage(text, promotionalPrice);
               }}
@@ -208,7 +228,7 @@ export default function AddPromotionScreen() {
             <InputField
               label="Promotional Price"
               value={promotionalPrice}
-              onChangeText={(text: React.SetStateAction<string>) => {
+              onChangeText={(text: string) => {
                 setPromotionalPrice(text);
                 calculateDiscountPercentage(originalPrice, text);
               }}
@@ -226,14 +246,14 @@ export default function AddPromotionScreen() {
 
           <View style={styles.dateContainer}>
             <View style={styles.halfWidth}>
-              <Text style={styles.label}>Start Date:</Text>
+              <Text style={styles.label}>Start Date</Text>
               <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
                 <Text style={styles.dateButtonText}>{startDate.toDateString()}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.halfWidth}>
-              <Text style={styles.label}>End Date:</Text>
+              <Text style={styles.label}>End Date</Text>
               <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
                 <Text style={styles.dateButtonText}>{endDate.toDateString()}</Text>
               </TouchableOpacity>
@@ -258,9 +278,9 @@ export default function AddPromotionScreen() {
           />
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Banner Image:</Text>
+            <Text style={styles.label}>Banner Image</Text>
             <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-              <Ionicons name="image-outline" size={24} color="#FF6B6B" />
+              <Ionicons name="image-outline" size={24} color="#4a90e2" />
               <Text style={styles.imageButtonText}>Select Banner Image</Text>
             </TouchableOpacity>
           </View>
@@ -278,21 +298,10 @@ export default function AddPromotionScreen() {
   );
 }
 
-const InputField = ({ label, ...props }:any) => (
-  <View style={styles.inputContainer}>
-    <Text style={styles.label}>{label}:</Text>
-    <TextInput
-      style={[styles.input, props.style]}
-      placeholderTextColor="#999"
-      {...props}
-    />
-  </View>
-);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f8fafc',
   },
   scrollContent: {
     flexGrow: 1,
@@ -317,19 +326,19 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#4a5568',
   },
   input: {
     height: 50,
-    borderColor: '#ddd',
+    borderColor: '#e2e8f0',
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 15,
     fontSize: 16,
     backgroundColor: 'white',
-    color: '#333',
+    color: '#2d3748',
   },
   priceContainer: {
     flexDirection: 'row',
@@ -345,7 +354,7 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     height: 50,
-    borderColor: '#ddd',
+    borderColor: '#e2e8f0',
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 15,
@@ -354,14 +363,14 @@ const styles = StyleSheet.create({
   },
   dateButtonText: {
     fontSize: 16,
-    color: '#333',
+    color: '#2d3748',
   },
   imageButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     height: 50,
-    borderColor: '#0a7ea4',
+    borderColor: '#4a90e2',
     borderWidth: 2,
     borderRadius: 10,
     backgroundColor: 'white',
@@ -369,7 +378,7 @@ const styles = StyleSheet.create({
   imageButtonText: {
     marginLeft: 10,
     fontSize: 16,
-    color: '#0a7ea4',
+    color: '#4a90e2',
     fontWeight: 'bold',
   },
   bannerPreview: {
@@ -380,7 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addButton: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#4a90e2',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -392,7 +401,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   discountContainer: {
-    backgroundColor: '#e6f7ff',
+    backgroundColor: '#ebf8ff',
     padding: 10,
     borderRadius: 10,
     marginBottom: 20,
@@ -401,7 +410,7 @@ const styles = StyleSheet.create({
   discountText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#0a7ea4',
+    color: '#4a90e2',
   },
 });
 
@@ -411,9 +420,9 @@ const pickerSelectStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e2e8f0',
     borderRadius: 10,
-    color: 'black',
+    color: '#2d3748',
     paddingRight: 30,
     backgroundColor: 'white',
   },
@@ -422,9 +431,9 @@ const pickerSelectStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e2e8f0',
     borderRadius: 10,
-    color: 'black',
+    color: '#2d3748',
     paddingRight: 30,
     backgroundColor: 'white',
   },

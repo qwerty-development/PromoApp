@@ -13,13 +13,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDebounce } from 'use-debounce';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import TimeLeftTag from '../../components/TimeLeftTag'
+import TimeLeftTag from '../../components/TimeLeftTag';
 import { Colors } from '@/constants/Colors';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -55,7 +55,7 @@ interface Industry {
   icon: string;
 }
 
-const FEATURED_ITEM_SIZE = width * 0.8;
+const FEATURED_ITEM_SIZE = width * 0.7;
 const ITEMS_PER_PAGE = 10;
 
 export default function HomeScreen() {
@@ -75,7 +75,6 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
-
   const fetchPromotions = async (
     pageNumber: number,
     query: string = '',
@@ -199,27 +198,27 @@ export default function HomeScreen() {
 
   const getIndustryIcon = (name: string) => {
     const iconMap: { [key: string]: string } = {
-      Food: 'restaurant',
-      Technology: 'phone-portrait-outline',
-      Fashion: 'shirt',
-	  Pharmaceuticals:'bag-add',
-      Health: 'fitness',
-	  Retail:'storefront-sharp',
+      Food: 'utensils',
+      Technology: 'laptop',
+      Fashion: 'tshirt',
+      Pharmaceuticals: 'pills',
+      Health: 'heartbeat',
+      Retail: 'store',
       Automotive: 'car',
       Entertainment: 'film',
-	  Electronics:'laptop',
-	  Manufacturing:'podium-sharp',
-	  LegalServices:'file',
-      Finance: 'cash',
-      Education: 'school',
-      Healthcare: 'medkit',
-      Hospitality: 'bed',
-      RealEstate: 'home-outline',
-      Energy: 'flash',
+      Electronics: 'microchip',
+      Manufacturing: 'industry',
+      LegalServices: 'balance-scale',
+      Finance: 'money-bill-wave',
+      Education: 'graduation-cap',
+      Healthcare: 'hospital',
+      Hospitality: 'hotel',
+      RealEstate: 'home',
+      Energy: 'bolt',
       Agriculture: 'leaf',
-      Transport: 'bus',
-      Construction: 'construct',
-      Telecommunications: 'call',
+      Transport: 'truck',
+      Construction: 'hard-hat',
+      Telecommunications: 'satellite-dish',
     };
     return iconMap[name] || 'briefcase';
   };
@@ -267,9 +266,16 @@ export default function HomeScreen() {
           <ThemedText style={styles.featuredPromotionTitle}>
             {item.title}
           </ThemedText>
-          <ThemedText style={styles.featuredPromotionBusiness}>
-            {item.seller.business_name}
-          </ThemedText>
+          <View style={styles.featuredPromotionInfo}>
+            <ThemedText style={styles.featuredPromotionBusiness}>
+              {item.seller.business_name}
+            </ThemedText>
+            {savings !== null && (
+              <View style={[styles.savingsTag, { backgroundColor: colors.accent }]}>
+                <ThemedText style={[styles.savingsText, { color: colors.background }]}>Save {savings.toFixed(0)}%</ThemedText>
+              </View>
+            )}
+          </View>
         </LinearGradient>
       </TouchableOpacity>
     );
@@ -296,24 +302,6 @@ export default function HomeScreen() {
 
           <View style={styles.promotionContent}>
             <ThemedText style={[styles.promotionTitle, { color: colors.text }]}>{item.title}</ThemedText>
-            <ThemedText style={[styles.promotionDescription, { color: colors.text }]} numberOfLines={2}>
-              {item.description}
-            </ThemedText>
-            <View style={[styles.quantityInfo, { borderColor: colors.border }]}>
-              <View style={styles.quantityItem}>
-                <Ionicons name="people-outline" size={16} color={colors.text} style={styles.quantityIcon} />
-                <ThemedText style={[styles.quantityText, { color: colors.text }]}>
-                  Claimed: {remainingQuantity} / {item.quantity}
-                </ThemedText>
-                {isLowQuantity && <ThemedText style={styles.fireEmoji}>🔥</ThemedText>}
-              </View>
-              <View style={styles.quantityItem}>
-                <ThemedText style={[styles.quantityText, { color: colors.text }]}>
-                  Waiting to be claimed: {waitingForScan}
-                </ThemedText>
-                <Ionicons name="time-outline" size={16} color={colors.primary} style={styles.quantityIcon} />
-              </View>
-            </View>
             <View style={styles.priceContainer}>
               {item.original_price !== null && (
                 <ThemedText style={[styles.originalPrice, { color: colors.text }]}>${item.original_price.toFixed(2)}</ThemedText>
@@ -322,10 +310,28 @@ export default function HomeScreen() {
                 <ThemedText style={[styles.promotionalPrice, { color: colors.primary }]}>${item.promotional_price.toFixed(2)}</ThemedText>
               )}
               {savings !== null && (
-                <View style={[styles.savingsTag, { backgroundColor: colors.primary }]}>
+                <View style={[styles.savingsTag, { backgroundColor: colors.accent }]}>
                   <ThemedText style={[styles.savingsText, { color: colors.background }]}>Save {savings.toFixed(0)}%</ThemedText>
                 </View>
               )}
+            </View>
+            <ThemedText style={[styles.promotionDescription, { color: colors.text }]} numberOfLines={2}>
+              {item.description}
+            </ThemedText>
+            <View style={[styles.quantityInfo, { borderColor: colors.border }]}>
+              <View style={styles.quantityItem}>
+                <FontAwesome5 name="users" size={14} color={colors.text} style={styles.quantityIcon} />
+                <ThemedText style={[styles.quantityText, { color: colors.text }]}>
+                  Claimed: {remainingQuantity} out of {item.quantity}
+                </ThemedText>
+                {isLowQuantity && <ThemedText style={styles.fireEmoji}>🔥</ThemedText>}
+              </View>
+              <View style={styles.quantityItem}>
+                <FontAwesome5 name="clock" size={14} color={colors.primary} style={styles.quantityIcon} />
+                <ThemedText style={[styles.quantityText, { color: colors.text }]}>
+                  Pending: {waitingForScan}
+                </ThemedText>
+              </View>
             </View>
             <View style={styles.promotionFooter}>
               <View style={styles.businessInfo}>
@@ -344,6 +350,10 @@ export default function HomeScreen() {
                 <ThemedText style={[styles.businessName, { color: colors.text }]}>
                   {item.seller.business_name}
                 </ThemedText>
+              </View>
+              <View style={[styles.industryBadge, { backgroundColor: colors.secondary }]}>
+                <FontAwesome5 name={getIndustryIcon(item.industry.name)} size={12} color={colors.background} />
+                <ThemedText style={[styles.industryName, { color: colors.background }]}>{item.industry.name}</ThemedText>
               </View>
             </View>
           </View>
@@ -365,9 +375,9 @@ export default function HomeScreen() {
     <SafeAreaProvider>
       <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
         <BlurView intensity={100} style={[styles.searchContainer, { backgroundColor: colors.border }]}>
-          <Ionicons
+          <FontAwesome5
             name="search"
-            size={24}
+            size={20}
             color={colors.text}
             style={styles.searchIcon}
           />
@@ -392,9 +402,9 @@ export default function HomeScreen() {
                 ]}
                 onPress={() => handleIndustryPress(item.id)}
               >
-                <Ionicons
-                  name={item.icon as any}
-                  size={24}
+                <FontAwesome5
+                  name={getIndustryIcon(item.name)}
+                  size={20}
                   color={
                     selectedIndustry === item.id
                       ? colors.background
@@ -403,7 +413,8 @@ export default function HomeScreen() {
                 />
                 <ThemedText
                   style={[
-                    styles.industryFilterText,selectedIndustry === item.id && styles.selectedIndustryFilterText,
+                    styles.industryFilterText,
+                    selectedIndustry === item.id && styles.selectedIndustryFilterText,
                     { color: selectedIndustry === item.id ? colors.background : colors.text }
                   ]}
                 >
@@ -482,6 +493,11 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     height: 50,
     overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   searchIcon: {
     marginRight: 10,
@@ -521,7 +537,7 @@ const styles = StyleSheet.create({
   industryFilterText: {
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 5,
+    marginLeft: 8,
   },
   selectedIndustryFilterText: {
     color: Colors.light.background,
@@ -544,6 +560,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
     borderRadius: 14,
     overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   featuredPromotionImage: {
     width: '100%',
@@ -565,6 +586,11 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
     marginBottom: 5,
   },
+  featuredPromotionInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   featuredPromotionBusiness: {
     fontSize: 14,
     color: Colors.light.background,
@@ -574,10 +600,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 14,
     overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   promotionBanner: {
     width: '100%',
-    height: 200,
+    height: 180,
     resizeMode: 'cover',
   },
   promotionContent: {
@@ -596,7 +627,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingVertical: 5,
   },
   originalPrice: {
     fontSize: 14,
@@ -622,7 +653,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 10,
   },
   businessInfo: {
     flexDirection: 'row',
@@ -644,6 +675,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  industryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  industryName: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
   emptyListContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -659,19 +702,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quantityInfo: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 10,
-    borderWidth: 0.2,
-    padding: 10,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    paddingVertical: 10,
   },
   quantityItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 5,
   },
   quantityIcon: {
-    marginRight: 4,
+    marginRight: 8,
   },
   quantityText: {
     fontSize: 14,

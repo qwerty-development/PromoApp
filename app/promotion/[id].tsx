@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Linking, Image, View, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { 
+  StyleSheet, 
+  Linking, 
+  Image, 
+  View, 
+  TouchableOpacity, 
+  Alert, 
+  ScrollView, 
+  ActivityIndicator, 
+  Dimensions 
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +19,9 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 interface Promotion {
   pending: number;
@@ -31,6 +43,8 @@ interface Promotion {
     business_logo: string;
   };
 }
+
+const { width } = Dimensions.get('window');
 
 export default function PromotionDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -186,76 +200,107 @@ export default function PromotionDetailScreen() {
   const bannerUrl = getPublicUrl(promotion.banner_url);
   const businessLogoUrl = getPublicUrl(promotion.seller.business_logo);
   const remainingQuantity = promotion.quantity - promotion.used_quantity;
+  const discountPercentage = promotion.original_price
+    ? Math.round(((promotion.original_price - promotion.promotional_price) / promotion.original_price) * 100)
+    : 0;
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      {bannerUrl && (
-        <Image
-          source={{ uri: bannerUrl }}
-          style={styles.bannerImage}
-          resizeMode="cover"
-        />
-      )}
+      <View style={styles.bannerContainer}>
+        {bannerUrl && (
+          <Image
+            source={{ uri: bannerUrl }}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.bannerGradient}
+        >
+          <View style={styles.businessInfoContainer}>
+            {businessLogoUrl && (
+              <Image
+                source={{ uri: businessLogoUrl }}
+                style={styles.businessLogo}
+                resizeMode="contain"
+              />
+            )}
+            <ThemedText style={[styles.businessName, { color: colors.background }]}>{promotion.seller.business_name}</ThemedText>
+          </View>
+        </LinearGradient>
+      </View>
 
       <View style={styles.contentContainer}>
-        <View style={styles.businessInfoContainer}>
-          {businessLogoUrl && (
-            <Image
-              source={{ uri: businessLogoUrl }}
-              style={styles.businessLogo}
-              resizeMode="contain"
-            />
-          )}
-          <ThemedText style={[styles.businessName, { color: colors.text }]}>{promotion.seller.business_name}</ThemedText>
-        </View>
+        <ThemedText style={[styles.title, { color: colors.text }]}>{promotion.title}</ThemedText>
 
-        <ThemedText style={[styles.title, { color: colors.primary }]}>{promotion.title}</ThemedText>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Ionicons name="calendar-outline" size={20} color={colors.text} />
-            <ThemedText style={[styles.infoText, { color: colors.text }]}>
-              {new Date(promotion.start_date).toLocaleDateString()} - {new Date(promotion.end_date).toLocaleDateString()}
-            </ThemedText>
+        <View style={styles.tagsContainer}>
+          <View style={[styles.tag, { backgroundColor: colors.primary }]}>
+            <FontAwesome5 name="percentage" size={12} color={colors.background} />
+            <ThemedText style={[styles.tagText, { color: colors.background }]}>{discountPercentage}% OFF</ThemedText>
           </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="pricetag-outline" size={20} color={colors.text} />
-            <ThemedText style={[styles.infoText, { color: colors.text }]}>
-              Remaining: {remainingQuantity} / {promotion.quantity}
+          <View style={[styles.tag, { backgroundColor: colors.secondary }]}>
+            <FontAwesome5 name="clock" size={12} color={colors.background} />
+            <ThemedText style={[styles.tagText, { color: colors.background }]}>
+              Ends {new Date(promotion.end_date).toLocaleDateString()}
             </ThemedText>
           </View>
         </View>
 
-        <ThemedText style={[styles.description, { color: colors.text }]}>{promotion.description}</ThemedText>
-        
         <View style={styles.priceContainer}>
-          {promotion.original_price && (
-            <ThemedText style={[styles.originalPrice, { color: colors.text }]}>
-              Original: ${promotion.original_price.toFixed(2)}
+          <View>
+            <ThemedText style={[styles.priceLabel, { color: colors.text }]}>Price</ThemedText>
+            <ThemedText style={[styles.promotionalPrice, { color: colors.primary }]}>
+              ${promotion.promotional_price.toFixed(2)}
             </ThemedText>
+          </View>
+          {promotion.original_price && (
+            <View>
+              <ThemedText style={[styles.priceLabel, { color: colors.text }]}>Original</ThemedText>
+              <ThemedText style={[styles.originalPrice, { color: colors.text }]}>
+                ${promotion.original_price.toFixed(2)}
+              </ThemedText>
+            </View>
           )}
-          <ThemedText style={[styles.promotionalPrice, { color: colors.primary }]}>
-            Now: ${promotion.promotional_price.toFixed(2)}
-          </ThemedText>
         </View>
 
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: promotion.seller.latitude,
-            longitude: promotion.seller.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          <Marker
-            coordinate={{
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Description</ThemedText>
+          <ThemedText style={[styles.description, { color: colors.text }]}>{promotion.description}</ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Availability</ThemedText>
+          <View style={styles.availabilityContainer}>
+            <ThemedText style={[styles.availabilityText, { color: colors.text }]}>
+              {remainingQuantity} of {promotion.quantity} remaining
+            </ThemedText>
+            <View style={styles.progressBarContainer}>
+              <View style={[styles.progressBar, { backgroundColor: colors.primary, width: `${(remainingQuantity / promotion.quantity) * 100}%` }]} />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Location</ThemedText>
+          <MapView
+            style={styles.map}
+            initialRegion={{
               latitude: promotion.seller.latitude,
               longitude: promotion.seller.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
             }}
-            title={promotion.seller.business_name}
-          />
-        </MapView>
+          >
+            <Marker
+              coordinate={{
+                latitude: promotion.seller.latitude,
+                longitude: promotion.seller.longitude,
+              }}
+              title={promotion.seller.business_name}
+            />
+          </MapView>
+        </View>
 
         <TouchableOpacity onPress={handleCallSeller} style={[styles.contactButton, { backgroundColor: colors.secondary }]}>
           <Ionicons name="call-outline" size={20} color={colors.background} />
@@ -271,21 +316,21 @@ export default function PromotionDetailScreen() {
         )}
 
         {isClaimed && (
-          <View style={[styles.statusContainer, { backgroundColor: colors.success }]}>
+          <BlurView intensity={100} tint={colorScheme} style={[styles.statusContainer, { backgroundColor: colors.success + '80' }]}>
             <Ionicons name="checkmark-circle-outline" size={24} color={colors.background} />
             <ThemedText style={[styles.statusText, { color: colors.background }]}>
               Promotion Claimed
             </ThemedText>
-          </View>
+          </BlurView>
         )}
 
         {remainingQuantity <= 0 && (
-          <View style={[styles.statusContainer, { backgroundColor: colors.error }]}>
+          <BlurView intensity={100} tint={colorScheme} style={[styles.statusContainer, { backgroundColor: colors.error + '80' }]}>
             <Ionicons name="close-circle-outline" size={24} color={colors.background} />
             <ThemedText style={[styles.statusText, { color: colors.background }]}>
               Promotion Sold Out
             </ThemedText>
-          </View>
+          </BlurView>
         )}
       </View>
     </ScrollView>
@@ -311,77 +356,126 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
   },
-  contentContainer: {
-    padding: 16,
+  bannerContainer: {
+    position: 'relative',
+    height: 250,
   },
   bannerImage: {
     width: '100%',
-    height: 200,
+    height: '100%',
+  },
+  bannerGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    justifyContent: 'flex-end',
+    padding: 16,
   },
   businessInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
   businessLogo: {
     width: 50,
     height: 50,
     borderRadius: 25,
     marginRight: 12,
+    backgroundColor: 'white',
   },
   businessName: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  contentContainer: {
+    padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
   },
-  infoContainer: {
+  tagsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 16,
   },
-  infoItem: {
+  tag: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginRight: 10,
   },
-  infoText: {
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  description: {
-    fontSize: 16,
-    marginBottom: 16,
-    lineHeight: 24,
+  tagText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
   priceContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 10,
   },
-  originalPrice: {
-    fontSize: 16,
-    textDecorationLine: 'line-through',
+  priceLabel: {
+    fontSize: 14,
+    marginBottom: 4,
   },
   promotionalPrice: {
     fontSize: 24,
     fontWeight: 'bold',
   },
+  originalPrice: {
+    fontSize: 18,
+    textDecorationLine: 'line-through',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  availabilityContainer: {
+    marginTop: 8,
+  },
+  availabilityText: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 5,
+  },
   map: {
     width: '100%',
     height: 200,
-    marginBottom: 16,
-    borderRadius: 8,
+    borderRadius: 10,
+    marginTop: 8,
   },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: 15,
+    borderRadius: 10,
     marginBottom: 16,
   },
   contactInfo: {
@@ -391,8 +485,9 @@ const styles = StyleSheet.create({
   },
   claimButton: {
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
+    marginBottom: 16,
   },
   claimButtonText: {
     color: 'white',
@@ -403,8 +498,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 16,
   },
   statusText: {
     fontSize: 16,

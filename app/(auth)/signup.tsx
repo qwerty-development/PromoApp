@@ -1,28 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Text,
-  Animated,
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
   Alert,
   ScrollView,
   useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -31,44 +26,10 @@ export default function SignupScreen() {
   const [contactNumber, setContactNumber] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const router = useRouter();
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(height)).current;
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 20,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
 
   async function handleSignup() {
     if (password !== confirmPassword) {
@@ -116,9 +77,8 @@ export default function SignupScreen() {
 
   const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry = false, keyboardType = 'default' }:any) => (
     <View style={styles.inputContainer}>
-      <Ionicons name={icon} size={24} color={colors.text} style={styles.inputIcon} />
       <TextInput
-        style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+        style={[styles.input, { color: colors.text, backgroundColor: colors.card }]}
         placeholder={placeholder}
         placeholderTextColor={colors.text}
         value={value}
@@ -126,85 +86,72 @@ export default function SignupScreen() {
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
       />
+      <Ionicons name={icon} size={24} color={colors.text} style={styles.inputIcon} />
     </View>
   );
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <LinearGradient
-        colors={colorScheme === 'dark' ? 
-          [colors.background, colors.tint, colors.primary] : 
-          [colors.background, colors.tint, colors.primary]
-        }
-        style={StyleSheet.absoluteFillObject}
-      />
-
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <BlurView 
-            intensity={100} 
-            tint={colorScheme === 'dark' ? 'dark' : 'light'} 
-            style={styles.blurContainer}
+        <View style={styles.content}>
+          <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
+          <Text style={[styles.subtitle, { color: colors.text }]}>Sign up to get started</Text>
+
+          <InputField
+            icon="person-outline"
+            placeholder="Full Name"
+            value={name}
+            onChangeText={setName}
+          />
+
+          <InputField
+            icon="mail-outline"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+
+          <InputField
+            icon="lock-closed-outline"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <InputField
+            icon="lock-closed-outline"
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+
+          <InputField
+            icon="call-outline"
+            placeholder="Contact Number"
+            value={contactNumber}
+            onChangeText={setContactNumber}
+            keyboardType="phone-pad"
+          />
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSignup}
+            disabled={loading}
           >
-            <Image source={require('../../assets/3roudat-logo.png')} style={styles.logo} />
+            <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
+          </TouchableOpacity>
 
-            <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
-
-            <InputField
-              icon="person-outline"
-              placeholder="Full Name"
-              value={name}
-              onChangeText={setName}
-            />
-
-            <InputField
-              icon="mail-outline"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-            />
-
-            <InputField
-              icon="lock-closed-outline"
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            <InputField
-              icon="lock-closed-outline"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
-
-            <InputField
-              icon="call-outline"
-              placeholder="Contact Number"
-              value={contactNumber}
-              onChangeText={setContactNumber}
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleSignup}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>{loading ? 'Signing up...' : 'Sign Up'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text style={[styles.link, { color: colors.tint }]}>Already have an account? Log in</Text>
-            </TouchableOpacity>
-          </BlurView>
-        </Animated.View>
+          <TouchableOpacity style={styles.linkContainer} onPress={() => router.push('/login')}>
+            <Text style={[styles.linkText, { color: colors.text }]}>Already have an account?</Text>
+            <Text style={[styles.link, { color: colors.primary }]}> Log in</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -221,48 +168,47 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   content: {
-    width: '90%',
+    width: width * 0.9,
     maxWidth: 400,
-  },
-  blurContainer: {
-    padding: 20,
-    borderRadius: 20,
     alignItems: 'center',
   },
-  logo: {
-    width: 100,
-    height: 100,
-    resizeMode: 'contain',
-    marginBottom: 20,
-  },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 18,
+    marginBottom: 32,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     width: '100%',
-  },
-  inputIcon: {
-    marginRight: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
-    height: 50,
-    borderBottomWidth: 1,
+    height: 56,
+    paddingHorizontal: 16,
     fontSize: 16,
   },
+  inputIcon: {
+    position: 'absolute',
+    right: 16,
+  },
   button: {
-    backgroundColor: Colors.light.tint,
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: Colors.light.primary,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     width: '100%',
-    marginTop: 20,
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -272,9 +218,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  linkContainer: {
+    flexDirection: 'row',
+    marginTop: 24,
+  },
+  linkText: {
+    fontSize: 16,
+  },
   link: {
-    marginTop: 20,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

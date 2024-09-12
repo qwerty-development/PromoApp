@@ -56,14 +56,6 @@ export default function SellerTabsLayout() {
           ),
         }}
       />
-
-      {/* Nested stack for promotion details and editing */}
-      <Tabs.Screen
-        name="promotion"
-        options={{
-          href: null, // This screen won't appear in the tab bar
-        }}
-      />
     </Tabs>
   );
 }
