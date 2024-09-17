@@ -11,6 +11,7 @@ import {
   Alert,
   ScrollView,
   useColorScheme,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -19,63 +20,27 @@ import { Colors } from '../../constants/Colors';
 
 const { width } = Dimensions.get('window');
 
-export default function SignupScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+interface InputFieldProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+}
 
+const InputField: React.FC<InputFieldProps> = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry = false,
+  keyboardType = 'default',
+}) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  async function handleSignup() {
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${process.env.EXPO_PUBLIC_APP_SCHEME}://confirm-email`
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        const { error: insertError } = await supabase.from('users').insert({
-          id: data.user.id,
-          email: data.user.email,
-          status: 'pending',
-          contact_number: contactNumber,
-          name: name,
-          created_at: new Date().toISOString()
-        });
-
-        if (insertError) throw insertError;
-
-        router.replace('/confirm-email');
-      }
-    } catch (error) {
-      console.error('Signup error:', error);
-      let errorMessage = 'An unexpected error occurred';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry = false, keyboardType = 'default' }:any) => (
+  return (
     <View style={styles.inputContainer}>
       <TextInput
         style={[styles.input, { color: colors.text, backgroundColor: colors.card }]}
@@ -89,6 +54,76 @@ export default function SignupScreen() {
       <Ionicons name={icon} size={24} color={colors.text} style={styles.inputIcon} />
     </View>
   );
+};
+
+export default function SignupScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  async function handleSignup() {
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${process.env.EXPO_PUBLIC_APP_SCHEME}://confirm-email`
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          const { error: insertError } = await supabase.from('users').insert({
+            id: data.user.id,
+            email: data.user.email,
+            status: 'pending',
+            contact_number: contactNumber,
+            name: name,
+            created_at: new Date().toISOString()
+          });
+
+          if (insertError) throw insertError;
+
+          router.replace('/confirm-email');
+          return; // Success, exit the function
+        }
+      } catch (error) {
+        console.error(`Signup attempt ${retries + 1} failed:`, error);
+        retries++;
+        if (retries < maxRetries) {
+          await sleep(2000); // Wait for 2 seconds before retrying
+        } else {
+          console.error('Max retries reached. Signup failed.');
+          let errorMessage = 'An unexpected error occurred. Please try again later.';
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          Alert.alert('Error', errorMessage);
+        }
+      }
+    }
+    setLoading(false);
+  }
 
   return (
     <KeyboardAvoidingView
@@ -144,7 +179,11 @@ export default function SignupScreen() {
             onPress={handleSignup}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.linkContainer} onPress={() => router.push('/login')}>
@@ -207,8 +246,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
     marginTop: 24,
+    height: 56,
   },
   buttonDisabled: {
     opacity: 0.7,

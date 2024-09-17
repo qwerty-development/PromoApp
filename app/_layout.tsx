@@ -18,7 +18,40 @@ function RootLayoutNav() {
   const router = useRouter();
 
   useEffect(() => {
-    // ... (keep the existing authentication and routing logic)
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const inAdminGroup = segments[0] === '(admin)';
+    const inSellerGroup = segments[0] === '(seller)';
+
+    if (!user) {
+      // If the user is not logged in and the current route is not in the auth group,
+      // redirect to the login page
+      if (!inAuthGroup) {
+        router.replace('/(auth)/login');
+      }
+    } else {
+      // User is logged in
+      if (inAuthGroup) {
+        // If the user is logged in and in the auth group, redirect to the appropriate dashboard
+        if (role === 'admin') {
+          router.replace('/(admin)');
+        } else if (role === 'seller') {
+          router.replace('/(seller)');
+        } else {
+          router.replace('/(tabs)');
+        }
+      } else {
+        // Check if the user is in the correct group based on their role
+        if (role === 'admin' && !inAdminGroup) {
+          router.replace('/(admin)');
+        } else if (role === 'seller' && !inSellerGroup) {
+          router.replace('/(seller)');
+        } else if (role !== 'admin' && role !== 'seller' && (inAdminGroup || inSellerGroup)) {
+          router.replace('/(tabs)');
+        }
+      }
+    }
   }, [user, segments, role, loading]);
 
   if (loading) {
