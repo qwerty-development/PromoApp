@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, TextInput, useColorScheme } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { Colors, ColorScheme } from '@/constants/Colors';
 
 interface Promotion {
   id: number;
@@ -25,6 +28,9 @@ export default function AdminPromotions() {
   const [selectedIndustry, setSelectedIndustry] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
+
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme as keyof typeof Colors] as ColorScheme;
 
   const fetchPromotions = useCallback(async () => {
     const { data, error } = await supabase
@@ -106,7 +112,7 @@ export default function AdminPromotions() {
       .update({ is_approved: false })
       .eq('id', id);
 
-    if (error) {
+    if (error) { 
       console.error('Error declining promotion:', error);
       Alert.alert('Error', 'Failed to decline promotion');
     } else {
@@ -116,59 +122,59 @@ export default function AdminPromotions() {
   }
 
   const renderPromotion = ({ item }: { item: Promotion }) => (
-    <View style={styles.promotionItem}>
-      <Text style={styles.promotionTitle}>{item.title}</Text>
-      <Text style={styles.promotionDescription}>{item.description}</Text>
-      <Text style={[styles.promotionStatus, item.is_approved ? styles.statusApproved : styles.statusPending]}>
+    <BlurView intensity={80}  style={styles(colors).promotionItem}>
+      <Text style={styles(colors).promotionTitle}>{item.title}</Text>
+      <Text style={styles(colors).promotionDescription}>{item.description}</Text>
+      <Text style={[styles(colors).promotionStatus, item.is_approved ? styles(colors).statusApproved : styles(colors).statusPending]}>
         Status: {item.is_approved ? 'Approved' : 'Pending'}
       </Text>
-      <View style={styles.buttonContainer}>
+      <View style={styles(colors).buttonContainer}>
         <TouchableOpacity
-          style={[styles.button, styles.approveButton]}
+          style={[styles(colors).button, styles(colors).approveButton]}
           onPress={() => handleApprove(item.id)}
         >
-          <Text style={styles.buttonText}>Approve</Text>
+          <Text style={styles(colors).buttonText}>Approve</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, styles.declineButton]}
+          style={[styles(colors).button, styles(colors).declineButton]}
           onPress={() => handleDecline(item.id)}
         >
-          <Text style={styles.buttonText}>Decline</Text>
+          <Text style={styles(colors).buttonText}>Decline</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </BlurView>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Manage Promotions</Text>
+    <View style={styles(colors).container}>
       
-      <View style={styles.tabContainer}>
+      <View style={styles(colors).tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+          style={[styles(colors).tab, activeTab === 'all' && styles(colors).activeTab]}
           onPress={() => setActiveTab('all')}
         >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</Text>
+          <Text style={[styles(colors).tabText, activeTab === 'all' && styles(colors).activeTabText]}>All</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
+          style={[styles(colors).tab, activeTab === 'pending' && styles(colors).activeTab]}
           onPress={() => setActiveTab('pending')}
         >
-          <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>Pending</Text>
+          <Text style={[styles(colors).tabText, activeTab === 'pending' && styles(colors).activeTabText]}>Pending</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.filterContainer}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={24} color="#666" style={styles.searchIcon} />
+      <View style={styles(colors).filterContainer}>
+        <View style={styles(colors).searchContainer}>
+          <Ionicons name="search" size={24} color={colors.text} style={styles(colors).searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={styles(colors).searchInput}
             placeholder="Search promotions..."
+            placeholderTextColor={colors.tabIconDefault}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-        <View style={styles.pickerContainer}>
+        <View style={styles(colors).pickerContainer}>
           <RNPickerSelect
             onValueChange={(value) => setSelectedIndustry(value)}
             items={[
@@ -178,7 +184,7 @@ export default function AdminPromotions() {
                 value: industry.id,
               })),
             ]}
-            style={pickerSelectStyles}
+            style={pickerSelectStyles(colors)}
             value={selectedIndustry}
             placeholder={{ label: 'Select an industry', value: null }}
           />
@@ -189,59 +195,68 @@ export default function AdminPromotions() {
         data={filteredPromotions}
         renderItem={renderPromotion}
         keyExtractor={(item) => item.id.toString()}
-        style={styles.list}
+        style={styles(colors).list}
+        contentContainerStyle={styles(colors).listContent}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (colors: ColorScheme) => StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    paddingTop: 60,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
+    color: colors.card,
+    textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginVertical: 20,
+    paddingHorizontal: 20,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
-    borderRadius: 5,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
   activeTab: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
   },
   activeTabText: {
-    color: 'white',
+    color: colors.card,
   },
   filterContainer: {
     marginBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 5,
-    paddingHorizontal: 10,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingHorizontal: 15,
     marginRight: 10,
     height: 40,
   },
@@ -251,6 +266,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+    color: colors.text,
   },
   pickerContainer: {
     width: 150,
@@ -258,39 +274,34 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
   },
+  listContent: {
+    paddingHorizontal: 20,
+  },
   promotionItem: {
-    backgroundColor: 'white',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 15,
     marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
-    elevation: 4,
+    overflow: 'hidden',
   },
   promotionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#333',
+    color: colors.text,
   },
   promotionDescription: {
     marginBottom: 10,
-    color: '#666',
+    color: colors.text,
   },
   promotionStatus: {
     fontStyle: 'italic',
     marginBottom: 10,
   },
   statusApproved: {
-    color: 'green',
+    color: colors.success,
   },
   statusPending: {
-    color: 'orange',
+    color: colors.warning,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -298,41 +309,43 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 20,
     width: '48%',
   },
   approveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
   },
   declineButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
   },
   buttonText: {
-    color: 'white',
+    color: colors.card,
     textAlign: 'center',
     fontWeight: 'bold',
   },
 });
 
-const pickerSelectStyles = StyleSheet.create({
+const pickerSelectStyles = (colors: ColorScheme) => StyleSheet.create({
   inputIOS: {
     fontSize: 16,
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 4,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    borderColor: colors.border,
+    borderRadius: 20,
+    color: colors.text,
+    paddingRight: 30,
+    backgroundColor: colors.card,
   },
   inputAndroid: {
     fontSize: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'purple',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    color: colors.text,
+    paddingRight: 30,
+    backgroundColor: colors.card,
   },
 });

@@ -26,8 +26,10 @@
     "expo": "~51.0.28",
     "expo-barcode-scanner": "~13.0.1",
     "expo-blur": "~13.0.2",
+    "expo-camera": "~15.0.15",
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.9",
+    "expo-haptics": "~13.0.1",
     "expo-image": "~1.12.15",
     "expo-image-picker": "~15.0.7",
     "expo-linear-gradient": "~13.0.2",
@@ -43,6 +45,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.74.5",
+    "react-native-chart-kit": "^6.12.0",
     "react-native-fast-image": "^8.6.3",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-maps": "1.14.0",
@@ -55,9 +58,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
     "react-navigation-shared-element": "^3.1.3",
-    "use-debounce": "^10.0.3",
-    "expo-camera": "~15.0.15",
-    "expo-haptics": "~13.0.1"
+    "use-debounce": "^10.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
