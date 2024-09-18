@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, ColorScheme } from '@/constants/Colors';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
 interface SellerProfile {
@@ -23,6 +24,8 @@ interface SellerProfile {
   contact_number: string;
   business_name: string;
   business_logo: string;
+  latitude: number | null;
+  longitude: number | null;
   total_promotions: number;
   active_promotions: number;
   pending_promotions: number;
@@ -96,6 +99,8 @@ export default function SellerProfileScreen() {
           contact_number: userData.contact_number || '',
           business_name: userData.business_name || '',
           business_logo: userData.business_logo || '',
+          latitude: userData.latitude || null,
+          longitude: userData.longitude || null,
           total_promotions: promotionsData.length,
           active_promotions: activePromotions.length,
           pending_promotions: pendingPromotions.length,
@@ -123,6 +128,8 @@ export default function SellerProfileScreen() {
           name: profile.name,
           business_name: profile.business_name,
           contact_number: profile.contact_number,
+          latitude: profile.latitude,
+          longitude: profile.longitude,
         })
         .eq('id', user.id);
 
@@ -151,43 +158,84 @@ export default function SellerProfileScreen() {
 
   async function uploadImage(uri: string) {
     try {
+      if (!uri) {
+        throw new Error('Invalid image URI');
+      }
+  
       const response = await fetch(uri);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
       const blob = await response.blob();
+      if (!blob) {
+        throw new Error('Failed to create blob from image');
+      }
+  
+      if (blob.size === 0) {
+        throw new Error('Blob is empty');
+      }
+  
       const fileName = `business_logo_${user?.id}_${Date.now()}.jpg`;
-
-      const { error: uploadError } = await supabase.storage
+  
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('logos')
-        .upload(fileName, blob);
-
-      if (uploadError) throw uploadError;
-
+        .upload(fileName, blob, { contentType: 'image/jpeg' });
+  
+      if (uploadError) {
+        throw uploadError;
+      }
+  
+      if (!uploadData) {
+        throw new Error('Upload successful but no data returned');
+      }
+  
       const { data } = supabase.storage.from('logos').getPublicUrl(fileName);
-
+  
       if (data && data.publicUrl) {
         const { error: updateError } = await supabase
           .from('users')
           .update({ business_logo: data.publicUrl })
           .eq('id', user?.id);
-
-        if (updateError) throw updateError;
-
+  
+        if (updateError) {
+          throw updateError;
+        }
+  
         setProfile((prev) => prev ? { ...prev, business_logo: data.publicUrl } : null);
         Alert.alert('Success', 'Profile picture updated successfully');
+      } else {
+        throw new Error('Failed to get public URL for uploaded image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to update profile picture');
+      Alert.alert('Error', `Failed to update profile picture.`);
     }
   }
 
   async function handleSignOut() {
-	const { error } = await supabase.auth.signOut()
-	if (error) {
-		Alert.alert('Error signing out', error.message)
-	} else {
-		router.replace('/login')
-	}
-}
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      Alert.alert('Error signing out', error.message)
+    } else {
+      router.replace('/login')
+    }
+  }
+
+  async function getCurrentLocation() {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Permission to access location was denied');
+      return;
+    }
+
+    let location = await Location.getCurrentPositionAsync({});
+    setProfile(prev => prev ? {
+      ...prev,
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude
+    } : null);
+  }
 
   if (loading) {
     return (
@@ -261,12 +309,39 @@ export default function SellerProfileScreen() {
                 placeholder="Contact Number"
                 placeholderTextColor={colors.tabIconDefault}
               />
+              <View style={styles.locationContainer}>
+                <TextInput
+                  style={[styles.input, styles.locationInput, { color: colors.text, borderColor: colors.border }]}
+                  value={profile.latitude?.toString() || ''}
+                  onChangeText={(text) => setProfile({ ...profile, latitude: parseFloat(text) || null })}
+                  placeholder="Latitude"
+                  placeholderTextColor={colors.tabIconDefault}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={[styles.input, styles.locationInput, { color: colors.text, borderColor: colors.border }]}
+                  value={profile.longitude?.toString() || ''}
+                  onChangeText={(text) => setProfile({ ...profile, longitude: parseFloat(text) || null })}
+                  placeholder="Longitude"
+                  placeholderTextColor={colors.tabIconDefault}
+                  keyboardType="numeric"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: colors.primary }]}
+                onPress={getCurrentLocation}
+              >
+                <Text style={[styles.buttonText, { color: colors.background }]}>
+                  Get Current Location
+                </Text>
+              </TouchableOpacity>
             </>
           ) : (
             <>
               <InfoItem icon="person-outline" value={profile.name} colors={colors} />
               <InfoItem icon="mail-outline" value={profile.email} colors={colors} />
               <InfoItem icon="call-outline" value={profile.contact_number} colors={colors} />
+              <InfoItem icon="location-outline" value={`Lat: ${profile.latitude?.toFixed(6) || 'N/A'}, Lon: ${profile.longitude?.toFixed(6) || 'N/A'}`} colors={colors} />
             </>
           )}
         </View>
@@ -443,5 +518,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 50,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  locationInput: {
+    width: '48%',
   },
 });

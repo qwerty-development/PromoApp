@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import RNPickerSelect from 'react-native-picker-select';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRoleCheck } from '@/lib/useRoleCheck';
 
 interface Industry {
   label: string;
@@ -66,6 +67,7 @@ export default function AddPromotionScreen() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const { user } = useAuth();
   const router = useRouter();
+  const { hasRequiredRole, isLoading: isRoleLoading } = useRoleCheck('seller', 30000); 
 
   useEffect(() => {
     const initializeScreen = async () => {
@@ -140,10 +142,7 @@ export default function AddPromotionScreen() {
   }
 
   const handleAddPromotion = async () => {
-    // Re-fetch the user role to ensure it's up to date
-    await fetchUserRole();
-  
-    if (userRole !== 'seller') {
+    if (!hasRequiredRole) {
       Alert.alert(
         'Role Changed',
         'Your role has been changed. You can no longer add promotions. Please log out and log in again.',
@@ -244,7 +243,7 @@ export default function AddPromotionScreen() {
     setEndDate(currentDate);
   };
 
-  if (isLoading) {
+  if (isLoading || isRoleLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#4a90e2" />
@@ -252,11 +251,11 @@ export default function AddPromotionScreen() {
     );
   }
 
-  if (userRole !== 'seller') {
+  if (!hasRequiredRole) {
     return (
       <View style={[styles.container, styles.centered]}>
         <Text style={styles.errorText}>Only sellers can add promotions.</Text>
-        <Text style={styles.errorText}>Your current role: {userRole || 'Not found'}</Text>
+        <Text style={styles.errorText}>Your current role is not authorized.</Text>
         <TouchableOpacity style={styles.backButton} onPress={handleSignOut}>
           <Text style={styles.backButtonText}>Please Sign out!</Text>
         </TouchableOpacity>

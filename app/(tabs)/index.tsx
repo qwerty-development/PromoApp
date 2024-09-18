@@ -182,16 +182,12 @@ export default function HomeScreen() {
 
   const getPublicUrl = (path: string) => {
     if (!path) return null;
-    const cleanPath = path.replace(
-      /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/promotion-banners\//,
-      ''
-    );
+    if (path.startsWith('http')) return path; // If it's already a full URL, return it as is
     const { data } = supabase.storage
-      .from('promotion-banners')
-      .getPublicUrl(cleanPath);
+      .from('logos') // Change this to 'logos' for business logos
+      .getPublicUrl(path);
     return data?.publicUrl;
   };
-
   const handlePromotionPress = (id: number) => {
     router.push(`/promotion/${id}`);
   };
