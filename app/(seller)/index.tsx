@@ -16,7 +16,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
+import {askForNotificationPermission} from '../../lib/notification'
+ 
 interface Promotion {
   id: string;
   title: string;
@@ -73,14 +74,38 @@ export default function MyPromotionsScreen() {
 
   useEffect(() => {
     if (user) {
+      async function requestNotificationPermission() {
+        const token = await askForNotificationPermission();
+        if (token) {
+          // Save the push token in your backend (Supabase, for example)
+          await savePushToken(token);
+        }
+      }
+
+      requestNotificationPermission();
       fetchPromotions();
     }
   }, [user, fetchPromotions]);
+
+  // Function to save the push token to the backend
+  async function savePushToken(token: string) {
+    if (!user) return;
+    const { error } = await supabase
+      .from('users')  // Assuming you have a 'users' table with a 'push_token' field
+      .update({ push_token: token })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Error saving push token:', error);
+    }
+  }
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchPromotions();
   }, [fetchPromotions]);
+
+
 
   const handleDelete = useCallback(async (id: string) => {
     Alert.alert(

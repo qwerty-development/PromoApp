@@ -26,6 +26,7 @@ import { BlurView } from 'expo-blur';
 interface Promotion {
   pending: number;
   id: string;
+  seller_id:string;
   title: string;
   description: string;
   start_date: string;
@@ -41,6 +42,7 @@ interface Promotion {
     longitude: number;
     business_name: string;
     business_logo: string;
+    push_token:string;
   };
 }
 
@@ -148,9 +150,16 @@ export default function PromotionDetailScreen() {
   };
 
   async function handleClaimPromotion() {
-    if (!user || !promotion) return;
+    if (!user?.id || !promotion?.id) {
+      console.error('User or promotion data is missing:', { userId: user?.id, promotionId: promotion?.id });
+      Alert.alert('Error', 'Unable to claim promotion. Please try again later.');
+      return;
+    }
   
     try {
+      console.log('Attempting to claim promotion:', { userId: user.id, promotionId: promotion.id });
+  
+      // Claim the promotion
       const { data, error } = await supabase
         .from('claimed_promotions')
         .insert({
@@ -164,12 +173,60 @@ export default function PromotionDetailScreen() {
   
       if (error) throw error;
   
+      console.log('Promotion claimed successfully:', data);
+  
+      // Update the promotion's pending count
       const { error: updateError } = await supabase
         .from('promotions')
-        .update({ pending: promotion.pending + 1 })
+        .update({ pending: (promotion.pending || 0) + 1 })
         .eq('id', promotion.id);
   
       if (updateError) throw updateError;
+  
+      console.log('Promotion pending count updated');
+  
+      // Fetch the seller's push token
+      const { data: sellerData, error: sellerError } = await supabase
+      .from('users')
+      .select('id, push_token')
+      .eq('id', promotion.seller_id)
+      .single();
+  
+      if (sellerError) throw sellerError;
+  
+      if (sellerData && sellerData.push_token) {
+        console.log('Sending notification to seller:', sellerData.push_token);
+      
+        const message = {
+          to: sellerData.push_token,
+          sound: 'default',
+          title: 'Promotion Claimed!',
+          body: `${user.user_metadata?.full_name || 'A user'} claimed the promotion "${promotion.title}" (${(promotion.pending || 0) + 1}/${promotion.quantity} claimed)`,
+          data: { promotionId: promotion.id },
+        };
+      
+        try {
+          const response = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Accept-encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(message),
+          });
+      
+          if (!response.ok) {
+            console.error('Failed to send notification:', await response.text());
+          } else {
+            console.log('Notification sent successfully');
+          }
+        } catch (error) {
+          console.error('Error sending notification:', error);
+        }
+      } else {
+        console.log('No push token found for seller');
+      }
   
       setIsClaimed(true);
       updateLocalClaimedStatus(true);
@@ -177,7 +234,7 @@ export default function PromotionDetailScreen() {
       router.push('/my-qr-codes');
     } catch (error) {
       console.error('Error claiming promotion:', error);
-      Alert.alert('Error', 'Failed to claim promotion. It may have already been claimed.');
+      Alert.alert('Error', 'Failed to claim promotion. It may have already been claimed or an error occurred.');
     }
   }
 

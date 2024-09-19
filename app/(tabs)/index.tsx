@@ -139,6 +139,7 @@ export default function HomeScreen() {
       setLoadingMore(false);
     }
   };
+  
 
   const fetchIndustries = async () => {
     const { data, error } = await supabase
@@ -314,6 +315,7 @@ export default function HomeScreen() {
             <ThemedText style={[styles.promotionDescription, { color: colors.text }]} numberOfLines={2}>
               {item.description}
             </ThemedText>
+            
             <View style={[styles.quantityInfo, { borderColor: colors.border }]}>
               <View style={styles.quantityItem}>
                 <FontAwesome5 name="users" size={14} color={colors.text} style={styles.quantityIcon} />
