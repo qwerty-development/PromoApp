@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Alert, Dimensions, useColorScheme } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { Colors } from '@/constants/Colors';
 
 interface Stats {
   totalUsers: number;
@@ -32,6 +33,8 @@ export default function AdminDashboard() {
   });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const fetchStats = async () => {
     setLoading(true);
@@ -109,32 +112,32 @@ export default function AdminDashboard() {
   }, []);
 
   const StatCard = ({ title, value, icon, suffix = '', trendIcon = '' }: { title: string; value: number | string; icon: string; suffix?: string; trendIcon?: string }) => (
-    <BlurView intensity={80} tint="light" style={styles.card}>
+    <BlurView intensity={80} tint={colorScheme} style={styles.card}>
       <LinearGradient
-        colors={['#4a90e2', '#63b3ed']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.cardGradient}
       >
-        <Ionicons name={icon as any} size={24} color="#ffffff" style={styles.cardIcon} />
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardValue}>
+        <Ionicons name={icon as any} size={24} color={colors.background} style={styles.cardIcon} />
+        <Text style={[styles.cardTitle, { color: colors.background }]}>{title}</Text>
+        <Text style={[styles.cardValue, { color: colors.background }]}>
           {typeof value === 'number' ? value.toLocaleString() : value}
           {suffix}
         </Text>
-        {trendIcon && <Ionicons name={trendIcon as any} size={20} color="#ffffff" style={styles.trendIcon} />}
+        {trendIcon && <Ionicons name={trendIcon as any} size={20} color={colors.background} style={styles.trendIcon} />}
       </LinearGradient>
     </BlurView>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {loading ? (
-        <ActivityIndicator size="large" color="#4a90e2" style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
         >
           <View style={styles.statsContainer}>
             <StatCard title="Total Users" value={stats.totalUsers} icon="people" trendIcon="trending-up" />
@@ -155,8 +158,8 @@ export default function AdminDashboard() {
             />
           </View>
 
-          <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>User Growth (Last 7 Days)</Text>
+          <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.chartTitle, { color: colors.text }]}>User Growth (Last 7 Days)</Text>
             <LineChart
               data={{
                 labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -165,28 +168,34 @@ export default function AdminDashboard() {
               width={width - 40}
               height={220}
               chartConfig={{
-                backgroundColor: '#ffffff',
-                backgroundGradientFrom: '#ffffff',
-                backgroundGradientTo: '#ffffff',
+                backgroundColor: colors.card,
+                backgroundGradientFrom: colors.card,
+                backgroundGradientTo: colors.card,
                 decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(74, 144, 226, ${opacity})`,
+                color: (opacity = 1) => `rgba(${parseInt(colors.primary.slice(1, 3), 16)}, ${parseInt(colors.primary.slice(3, 5), 16)}, ${parseInt(colors.primary.slice(5, 7), 16)}, ${opacity})`,
+                labelColor: () => colors.text,
                 style: {
                   borderRadius: 16,
                 },
+                propsForDots: {
+                  r: "6",
+                  strokeWidth: "2",
+                  stroke: colors.secondary
+                }
               }}
               bezier
               style={styles.chart}
             />
           </View>
 
-          <View style={styles.topCategoriesContainer}>
-            <Text style={styles.sectionTitle}>Top Categories</Text>
+          <View style={[styles.topCategoriesContainer, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Categories</Text>
             {stats.topCategories.map((category, index) => (
-              <View key={index} style={styles.categoryItem}>
-                <Text style={styles.categoryName}>{category.name}</Text>
+              <View key={index} style={[styles.categoryItem, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.categoryName, { color: colors.text }]}>{category.name}</Text>
                 <View style={styles.categoryCountContainer}>
-                  <Text style={styles.categoryCount}>{category.count}</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#4a90e2" />
+                  <Text style={[styles.categoryCount, { color: colors.primary }]}>{category.count}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.primary} />
                 </View>
               </View>
             ))}
@@ -200,23 +209,10 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
   scrollContent: {
     flexGrow: 1,
     padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -240,12 +236,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#ffffff',
   },
   cardValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff',
   },
   trendIcon: {
     position: 'absolute',
@@ -253,7 +247,6 @@ const styles = StyleSheet.create({
     right: 10,
   },
   chartContainer: {
-    backgroundColor: '#ffffff',
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
@@ -267,14 +260,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
   },
   chart: {
     marginVertical: 8,
     borderRadius: 16,
   },
   topCategoriesContainer: {
-    backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 15,
     marginBottom: 20,
@@ -288,7 +279,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
   },
   categoryItem: {
     flexDirection: 'row',
@@ -296,11 +286,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   categoryName: {
     fontSize: 16,
-    color: '#333',
   },
   categoryCountContainer: {
     flexDirection: 'row',
@@ -309,7 +297,6 @@ const styles = StyleSheet.create({
   categoryCount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4a90e2',
     marginRight: 5,
   },
   loader: {

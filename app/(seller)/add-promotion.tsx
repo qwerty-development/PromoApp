@@ -1,16 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity,
+  Image, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,52 +55,18 @@ export default function AddPromotionScreen() {
   const [promotionalPrice, setPromotionalPrice] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const { hasRequiredRole, isLoading: isRoleLoading } = useRoleCheck('seller', 30000); 
+  const { hasRequiredRole, isLoading: isRoleLoading } = useRoleCheck('seller', 30000);
 
   useEffect(() => {
     const initializeScreen = async () => {
-      await fetchUserRole();
       await fetchIndustries();
-      console.log('User role:', user);
       setIsLoading(false);
     };
 
     initializeScreen();
   }, []);
-
-  const fetchUserRole = async () => {
-    if (user) {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          throw error;
-        }
-
-        if (data) {
-          setUserRole(data.role);
-          console.log('User role:', data.role);  // Log the role for debugging
-        } else {
-          console.log('No user data found');
-          setUserRole(null);
-        }
-      } catch (error) {
-        console.error('Error fetching user role:', error);
-        Alert.alert('Error', 'Failed to fetch user role. Please try again.');
-        setUserRole(null);
-      }
-    } else {
-      console.log('No user found');
-      setUserRole(null);
-    }
-  };
 
   const fetchIndustries = async () => {
     const { data, error } = await supabase.from('industries').select('*');
@@ -131,15 +88,51 @@ export default function AddPromotionScreen() {
     }
   }, []);
 
-
   async function handleSignOut() {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut();
     if (error) {
-      Alert.alert('Error signing out', error.message)
+      Alert.alert('Error signing out', error.message);
     } else {
-      router.replace('/login')
+      router.replace('/login');
     }
   }
+
+  const sendNotificationToAdmins = async (promotionId: string) => {
+    try {
+      // Fetch all admin users
+      const { data: admins, error: adminError } = await supabase
+        .from('users')
+        .select('id, push_token')
+        .eq('role', 'admin');
+
+      if (adminError) throw new Error('Failed to fetch admin users');
+
+      // Send notification to each admin
+      for (const admin of admins) {
+        if (admin.push_token) {
+          const message = {
+            to: admin.push_token,
+            sound: 'default',
+            title: 'New Promotion to Review',
+            body: `A new promotion "${title}" has been submitted for approval.`,
+            data: { promotionId },
+          };
+
+          await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Accept-encoding': 'gzip, deflate',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(message),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending notifications to admins:', error);
+    }
+  };
 
   const handleAddPromotion = async () => {
     if (!hasRequiredRole) {
@@ -150,47 +143,30 @@ export default function AddPromotionScreen() {
       );
       return;
     }
-  
+
     if (!title || !description || !industry || !bannerImage || !user || !quantity) {
       Alert.alert('Error', 'Please fill in all fields, upload a banner image, and set a quantity.');
       return;
     }
-  
+
     try {
       const fileExt = bannerImage.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
-  
+
       const { error: uploadError } = await supabase.storage
         .from('promotion-banners')
         .upload(filePath, { uri: bannerImage } as unknown as File, { contentType: `image/${fileExt}` });
-  
+
       if (uploadError) throw new Error('Failed to upload image: ' + uploadError.message);
-  
+
       const { data: publicFile } = await supabase.storage
         .from('promotion-banners')
         .getPublicUrl(filePath);
-  
+
       if (!publicFile || !publicFile.publicUrl) throw new Error('Failed to get public URL');
-  
-      // Check the role again just before inserting the promotion
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-  
-      if (userError) throw new Error('Failed to verify user role');
-      if (userData.role !== 'seller') {
-        Alert.alert(
-          'Role Changed',
-          'Your role has changed during this operation. The promotion was not added. Please log out and log in again.',
-          [{ text: 'OK', onPress: handleSignOut }]
-        );
-        return;
-      }
-  
-      const { error: insertError } = await supabase
+
+      const { data: promotionData, error: insertError } = await supabase
         .from('promotions')
         .insert({
           title,
@@ -206,17 +182,21 @@ export default function AddPromotionScreen() {
           unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           original_price: originalPrice ? parseFloat(originalPrice) : null,
           promotional_price: parseFloat(promotionalPrice),
-        });
-  
+        })
+        .select()
+        .single();
+
       if (insertError) throw new Error(insertError.message);
-  
-      Alert.alert('Success', 'Promotion added successfully');
+
+      // Send notifications to admin users
+      await sendNotificationToAdmins(promotionData.id);
+
+      Alert.alert('Success', 'Promotion added successfully and sent for approval');
       router.back();
     } catch (error) {
       Alert.alert('Error', (error as Error).message);
     }
   };
-
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

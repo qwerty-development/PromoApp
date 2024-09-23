@@ -9,11 +9,12 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  useColorScheme
+  useColorScheme,
+  Image
 } from 'react-native'
 import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '@/lib/supabase'
-import { Ionicons } from '@expo/vector-icons'
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BlurView } from 'expo-blur'
@@ -25,6 +26,7 @@ interface User {
   role: string
   created_at: string
   name: string
+  avatar_url: string
 }
 
 type Role = 'user' | 'seller' | 'admin'
@@ -110,6 +112,8 @@ export default function AdminUsers() {
             user.id === userId ? { ...user, role: user.role } : user
           )
         )
+      } else {
+        Alert.alert('Success', `User role updated to ${newRole}`)
       }
     },
     []
@@ -117,11 +121,28 @@ export default function AdminUsers() {
 
   const renderUser = useCallback(
     ({ item }: { item: User }) => (
-      <BlurView intensity={80}  style={styles(colors).userItem}>
-        <View style={styles(colors).userInfo}>
-          <Text style={styles(colors).userName}>{item.name || 'N/A'}</Text>
-          <Text style={styles(colors).userEmail}>{item.email}</Text>
-          <Text style={styles(colors).userRole}>Current Role: {item.role}</Text>
+      <BlurView intensity={80} tint={colorScheme} style={styles(colors).userItem}>
+        <View style={styles(colors).userHeader}>
+          <Image 
+            source={{ uri: item.avatar_url || 'https://via.placeholder.com/50' }} 
+            style={styles(colors).avatar} 
+          />
+          <View style={styles(colors).userInfo}>
+            <Text style={styles(colors).userName}>{item.name || 'N/A'}</Text>
+            <Text style={styles(colors).userEmail}>{item.email}</Text>
+          </View>
+        </View>
+        <View style={styles(colors).userDetails}>
+          <View style={styles(colors).detailItem}>
+            <FontAwesome5 name="user-tag" size={16} color={colors.text} />
+            <Text style={styles(colors).detailText}>Current Role: {item.role}</Text>
+          </View>
+          <View style={styles(colors).detailItem}>
+            <FontAwesome5 name="calendar-alt" size={16} color={colors.text} />
+            <Text style={styles(colors).detailText}>
+              Joined: {new Date(item.created_at).toLocaleDateString()}
+            </Text>
+          </View>
         </View>
         <View style={styles(colors).rolePicker}>
           <RNPickerSelect
@@ -163,28 +184,30 @@ export default function AdminUsers() {
   if (isLoading) {
     return (
       <View style={[styles(colors).container, styles(colors).centered]}>
-        <ActivityIndicator size='large' color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
 
   return (
     <View style={[styles(colors).container]}>
+
       <View style={styles(colors).tabContainer}>
         {renderTab('user')}
         {renderTab('seller')}
         {renderTab('admin')}
       </View>
+
       <View style={styles(colors).searchContainer}>
         <Ionicons
-          name='search'
+          name="search"
           size={24}
           color={colors.text}
           style={styles(colors).searchIcon}
         />
         <TextInput
           style={styles(colors).searchInput}
-          placeholder='Search by name or email'
+          placeholder="Search by name or email"
           placeholderTextColor={colors.tabIconDefault}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -195,10 +218,11 @@ export default function AdminUsers() {
           <Ionicons
             name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
             size={24}
-            color={colors.card}
+            color={colors.background}
           />
         </TouchableOpacity>
       </View>
+
       <FlatList
         data={filteredUsers}
         renderItem={renderUser}
@@ -207,7 +231,10 @@ export default function AdminUsers() {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <Text style={styles(colors).emptyListText}>No users found</Text>
+          <View style={styles(colors).emptyListContainer}>
+            <FontAwesome5 name="users-slash" size={50} color={colors.text} />
+            <Text style={styles(colors).emptyListText}>No users found</Text>
+          </View>
         }
         contentContainerStyle={styles(colors).listContent}
       />
@@ -232,7 +259,7 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.card,
+    color: colors.background,
     textAlign: 'center',
   },
   tabContainer: {
@@ -256,7 +283,7 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     color: colors.text,
   },
   activeTabText: {
-    color: colors.card,
+    color: colors.background,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -290,10 +317,18 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     padding: 15,
     borderRadius: 15,
     marginBottom: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     overflow: 'hidden',
+  },
+  userHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
   },
   userInfo: {
     flex: 1,
@@ -306,15 +341,27 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: colors.text,
+  },
+  userDetails: {
+    marginBottom: 10,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 5,
   },
-  userRole: {
+  detailText: {
     fontSize: 14,
-    color: colors.secondary,
-    fontStyle: 'italic',
+    color: colors.text,
+    marginLeft: 10,
   },
   rolePicker: {
-    width: 120,
+    marginTop: 10,
+  },
+  emptyListContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
   },
   emptyListText: {
     textAlign: 'center',
@@ -337,7 +384,7 @@ const pickerSelectStyles = (colors: ColorScheme) => StyleSheet.create({
     borderRadius: 20,
     color: colors.text,
     paddingRight: 30,
-    backgroundColor: colors.card,
+    backgroundColor: colors.background,
   },
   inputAndroid: {
     fontSize: 16,
@@ -348,6 +395,6 @@ const pickerSelectStyles = (colors: ColorScheme) => StyleSheet.create({
     borderRadius: 20,
     color: colors.text,
     paddingRight: 30,
-    backgroundColor: colors.card,
+    backgroundColor: colors.background,
   },
 })

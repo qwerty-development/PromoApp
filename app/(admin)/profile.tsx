@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, ActivityIndicator, useColorScheme, Image } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Colors, ColorScheme } from '@/constants/Colors';
@@ -12,8 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface AdminProfile {
   id: string;
   email: string;
-  full_name: string | null;
-  phone_number: string | null;
+  name: string | null;
+  contact_number: string | null;
+  avatar_url: string | null;
 }
 
 export default function AdminProfileScreen() {
@@ -79,13 +80,28 @@ export default function AdminProfileScreen() {
   }
 
   async function handleSignOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out. Please try again.');
-    } else {
-      router.replace('/(auth)/login');
-    }
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "Sign Out", 
+          onPress: async () => {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            } else {
+              router.replace('/(auth)/login');
+            }
+          }
+        }
+      ]
+    );
   }
 
   if (isLoading) {
@@ -109,16 +125,24 @@ export default function AdminProfileScreen() {
       style={[styles(colors).container]} 
       contentContainerStyle={styles(colors).contentContainer}
     >
+      <LinearGradient
+        colors={[colors.primary, colors.secondary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles(colors).header}
+      >
+        <Image
+          source={{ uri: profile.avatar_url || 'https://via.placeholder.com/150' }}
+          style={styles(colors).avatar}
+        />
+        <Text style={styles(colors).title}>{profile.name || 'Admin'}</Text>
+        <Text style={styles(colors).subtitle}>{profile.email}</Text>
+        <Text style={styles(colors).subtitle}>{profile.contact_number}</Text>
+      </LinearGradient>
 
-      <BlurView intensity={80}  style={styles(colors).profileContainer}>
+      <BlurView intensity={80} tint={colorScheme} style={styles(colors).profileContainer}>
         <View style={styles(colors).profileItem}>
-          <Ionicons name="mail-outline" size={24} color={colors.text} />
-          <Text style={styles(colors).label}>Email:</Text>
-          <Text style={styles(colors).value}>{profile.email}</Text>
-        </View>
-        
-        <View style={styles(colors).profileItem}>
-          <Ionicons name="person-outline" size={24} color={colors.text} />
+          <FontAwesome5 name="user" size={20} color={colors.text} />
           <Text style={styles(colors).label}>Full Name:</Text>
           <TextInput
             style={styles(colors).input}
@@ -130,7 +154,7 @@ export default function AdminProfileScreen() {
         </View>
         
         <View style={styles(colors).profileItem}>
-          <Ionicons name="call-outline" size={24} color={colors.text} />
+          <FontAwesome5 name="phone" size={20} color={colors.text} />
           <Text style={styles(colors).label}>Phone Number:</Text>
           <TextInput
             style={styles(colors).input}
@@ -142,12 +166,14 @@ export default function AdminProfileScreen() {
           />
         </View>
         
-        <TouchableOpacity style={styles(colors).button} onPress={updateProfile}>
+        <TouchableOpacity style={styles(colors).updateButton} onPress={updateProfile}>
+          <FontAwesome5 name="save" size={20} color={colors.background} />
           <Text style={styles(colors).buttonText}>Update Profile</Text>
         </TouchableOpacity>
       </BlurView>
       
-      <TouchableOpacity style={[styles(colors).button, styles(colors).signOutButton]} onPress={handleSignOut}>
+      <TouchableOpacity style={styles(colors).signOutButton} onPress={handleSignOut}>
+        <FontAwesome5 name="sign-out-alt" size={20} color={colors.background} />
         <Text style={styles(colors).buttonText}>Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -160,7 +186,7 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   contentContainer: {
-    padding: 20,
+    paddingBottom: 40,
   },
   centered: {
     justifyContent: 'center',
@@ -168,36 +194,48 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
   },
   header: {
     padding: 20,
-    borderRadius: 15,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 15,
+    borderWidth: 4,
+    borderColor: colors.background,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: colors.card,
+    color: colors.background,
     textAlign: 'center',
   },
+  subtitle: {
+    fontSize: 16,
+    color: colors.background,
+    opacity: 0.8,
+    marginTop: 5,
+  },
   profileContainer: {
-    borderRadius: 15,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginHorizontal: 20,
+    padding: 20,
   },
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
-    paddingHorizontal: 15,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 10,
+    marginLeft: 15,
     color: colors.text,
-  },
-  value: {
-    fontSize: 16,
-    marginLeft: 10,
-    color: colors.text,
+    width: 120,
   },
   input: {
     flex: 1,
@@ -205,25 +243,33 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     padding: 10,
-    marginLeft: 10,
     fontSize: 16,
     color: colors.text,
   },
-  button: {
+  updateButton: {
     backgroundColor: colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
     marginTop: 10,
   },
   signOutButton: {
     backgroundColor: colors.error,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 20,
     marginTop: 20,
   },
   buttonText: {
-    color: colors.card,
+    color: colors.background,
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 10,
   },
   errorText: {
     fontSize: 16,

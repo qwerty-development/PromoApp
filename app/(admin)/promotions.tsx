@@ -1,19 +1,37 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, TextInput, useColorScheme } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, TextInput, useColorScheme, Image, ActivityIndicator } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Colors, ColorScheme } from '@/constants/Colors';
 
 interface Promotion {
-  id: number;
+  id: string;
+  seller_id: string;
+  industry_id: number;
   title: string;
   description: string;
+  start_date: string;
+  end_date: string;
+  banner_url: string;
   is_approved: boolean;
-  industry_id: number;
+  created_at: string;
+  quantity: number;
+  used_quantity: number;
+  unique_code: string;
+  original_price: number;
+  promotional_price: number;
+  pending: number;
+  seller: {
+    business_name: string;
+    business_logo: string;
+  };
+  industry: {
+    name: string;
+  };
 }
 
 interface Industry {
@@ -28,14 +46,21 @@ export default function AdminPromotions() {
   const [selectedIndustry, setSelectedIndustry] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
+  const [expandedPromotion, setExpandedPromotion] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme as keyof typeof Colors] as ColorScheme;
 
   const fetchPromotions = useCallback(async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('promotions')
-      .select('*')
+      .select(`
+        *,
+        seller:users (business_name, business_logo),
+        industry:industries (name)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -43,6 +68,7 @@ export default function AdminPromotions() {
     } else {
       setPromotions(data || []);
     }
+    setLoading(false);
   }, []);
 
   const fetchIndustries = useCallback(async () => {
@@ -84,60 +110,157 @@ export default function AdminPromotions() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(promo =>
         promo.title.toLowerCase().includes(query) ||
-        promo.description.toLowerCase().includes(query)
+        promo.description.toLowerCase().includes(query) ||
+        promo.seller.business_name.toLowerCase().includes(query)
       );
     }
 
     setFilteredPromotions(filtered);
   }
 
-  async function handleApprove(id: number) {
+  async function handleApprove(promotion: Promotion) {
     const { error } = await supabase
       .from('promotions')
       .update({ is_approved: true })
-      .eq('id', id);
+      .eq('id', promotion.id);
 
     if (error) {
       console.error('Error approving promotion:', error);
       Alert.alert('Error', 'Failed to approve promotion');
     } else {
+      await sendNotificationToSeller(promotion, true);
       fetchPromotions();
       Alert.alert('Success', 'Promotion approved');
     }
   }
 
-  async function handleDecline(id: number) {
+  async function handleDecline(promotion: Promotion) {
     const { error } = await supabase
       .from('promotions')
       .update({ is_approved: false })
-      .eq('id', id);
+      .eq('id', promotion.id);
 
     if (error) { 
       console.error('Error declining promotion:', error);
       Alert.alert('Error', 'Failed to decline promotion');
     } else {
+      await sendNotificationToSeller(promotion, false);
       fetchPromotions();
       Alert.alert('Success', 'Promotion declined');
     }
   }
 
+  async function sendNotificationToSeller(promotion: Promotion, isApproved: boolean) {
+    const { data: sellerData, error: sellerError } = await supabase
+      .from('users')
+      .select('push_token')
+      .eq('id', promotion.seller_id)
+      .single();
+
+    if (sellerError || !sellerData?.push_token) {
+      console.error('Error fetching seller push token:', sellerError);
+      return;
+    }
+
+    const message = {
+      to: sellerData.push_token,
+      sound: 'default',
+      title: isApproved ? 'Promotion Approved!' : 'Promotion Declined',
+      body: `Your promotion "${promotion.title}" has been ${isApproved ? 'approved' : 'declined'}.`,
+      data: { promotionId: promotion.id },
+    };
+
+    try {
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
+  }
+
   const renderPromotion = ({ item }: { item: Promotion }) => (
-    <BlurView intensity={80}  style={styles(colors).promotionItem}>
-      <Text style={styles(colors).promotionTitle}>{item.title}</Text>
-      <Text style={styles(colors).promotionDescription}>{item.description}</Text>
-      <Text style={[styles(colors).promotionStatus, item.is_approved ? styles(colors).statusApproved : styles(colors).statusPending]}>
-        Status: {item.is_approved ? 'Approved' : 'Pending'}
-      </Text>
+    <BlurView intensity={80} tint={colorScheme} style={styles(colors).promotionItem}>
+      <TouchableOpacity onPress={() => setExpandedPromotion(expandedPromotion === item.id ? null : item.id)}>
+        <View style={styles(colors).promotionHeader}>
+          <Image 
+            source={{ uri: item.seller.business_logo || 'https://via.placeholder.com/50' }} 
+            style={styles(colors).sellerLogo} 
+          />
+          <View style={styles(colors).promotionHeaderText}>
+            <Text style={styles(colors).promotionTitle}>{item.title}</Text>
+            <Text style={styles(colors).sellerName}>{item.seller.business_name}</Text>
+          </View>
+          <View style={[styles(colors).statusBadge, item.is_approved ? styles(colors).approvedBadge : styles(colors).pendingBadge]}>
+            <Text style={styles(colors).statusText}>{item.is_approved ? 'Approved' : 'Pending'}</Text>
+          </View>
+        </View>
+        
+        <Text style={styles(colors).promotionDescription} numberOfLines={expandedPromotion === item.id ? undefined : 2}>
+          {item.description}
+        </Text>
+
+        {expandedPromotion === item.id && (
+          <View style={styles(colors).expandedDetails}>
+            <Image source={{ uri: item.banner_url }} style={styles(colors).bannerImage} />
+            
+            <View style={styles(colors).detailRow}>
+              <View style={styles(colors).detailItem}>
+                <FontAwesome5 name="calendar-alt" size={16} color={colors.text} />
+                <Text style={styles(colors).detailText}>
+                  {new Date(item.start_date).toLocaleDateString()} - {new Date(item.end_date).toLocaleDateString()}
+                </Text>
+              </View>
+              <View style={styles(colors).detailItem}>
+                <FontAwesome5 name="tag" size={16} color={colors.text} />
+                <Text style={styles(colors).detailText}>{item.industry.name}</Text>
+              </View>
+            </View>
+
+            <View style={styles(colors).detailRow}>
+              <View style={styles(colors).detailItem}>
+                <FontAwesome5 name="box" size={16} color={colors.text} />
+                <Text style={styles(colors).detailText}>
+                  Quantity: {item.quantity} (Used: {item.used_quantity}, Pending: {item.pending})
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles(colors).detailRow}>
+              <View style={styles(colors).detailItem}>
+                <FontAwesome5 name="dollar-sign" size={16} color={colors.text} />
+                <Text style={styles(colors).detailText}>
+                  Original: ${item.original_price.toFixed(2)} | Promo: ${item.promotional_price.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles(colors).detailRow}>
+              <View style={styles(colors).detailItem}>
+                <FontAwesome5 name="barcode" size={16} color={colors.text} />
+                <Text style={styles(colors).detailText}>Code: {item.unique_code}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+
       <View style={styles(colors).buttonContainer}>
         <TouchableOpacity
           style={[styles(colors).button, styles(colors).approveButton]}
-          onPress={() => handleApprove(item.id)}
+          onPress={() => handleApprove(item)}
         >
           <Text style={styles(colors).buttonText}>Approve</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles(colors).button, styles(colors).declineButton]}
-          onPress={() => handleDecline(item.id)}
+          onPress={() => handleDecline(item)}
         >
           <Text style={styles(colors).buttonText}>Decline</Text>
         </TouchableOpacity>
@@ -147,7 +270,6 @@ export default function AdminPromotions() {
 
   return (
     <View style={styles(colors).container}>
-      
       <View style={styles(colors).tabContainer}>
         <TouchableOpacity
           style={[styles(colors).tab, activeTab === 'all' && styles(colors).activeTab]}
@@ -191,13 +313,17 @@ export default function AdminPromotions() {
         </View>
       </View>
 
-      <FlatList
-        data={filteredPromotions}
-        renderItem={renderPromotion}
-        keyExtractor={(item) => item.id.toString()}
-        style={styles(colors).list}
-        contentContainerStyle={styles(colors).listContent}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={styles(colors).loader} />
+      ) : (
+        <FlatList
+          data={filteredPromotions}
+          renderItem={renderPromotion}
+          keyExtractor={(item) => item.id}
+          style={styles(colors).list}
+          contentContainerStyle={styles(colors).listContent}
+        />
+      )}
     </View>
   );
 }
@@ -206,18 +332,6 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.card,
-    textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -283,34 +397,87 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     marginBottom: 15,
     overflow: 'hidden',
   },
+  promotionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sellerLogo: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  promotionHeaderText: {
+    flex: 1,
+  },
   promotionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 5,
     color: colors.text,
+  },
+  sellerName: {
+    fontSize: 14,
+    color: colors.text,
+    opacity: 0.7,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  approvedBadge: {
+    backgroundColor: colors.success,
+  },
+  pendingBadge: {
+    backgroundColor: colors.warning,
+  },
+  statusText: {
+    color: colors.background,
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   promotionDescription: {
-    marginBottom: 10,
+    fontSize: 14,
     color: colors.text,
-  },
-  promotionStatus: {
-    fontStyle: 'italic',
     marginBottom: 10,
   },
-  statusApproved: {
-    color: colors.success,
+  expandedDetails: {
+    marginTop: 10,
   },
-  statusPending: {
-    color: colors.warning,
+  bannerImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailText: {
+    fontSize: 14,
+    color: colors.text,
+    marginLeft: 5,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 10,
   },
   button: {
-    padding: 10,
+    flex: 1,
+    paddingVertical: 10,
     borderRadius: 20,
-    width: '48%',
+    alignItems: 'center',
+    marginHorizontal: 5,
   },
   approveButton: {
     backgroundColor: colors.success,
@@ -319,33 +486,41 @@ const styles = (colors: ColorScheme) => StyleSheet.create({
     backgroundColor: colors.error,
   },
   buttonText: {
-    color: colors.card,
-    textAlign: 'center',
+    color: colors.background,
     fontWeight: 'bold',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
 const pickerSelectStyles = (colors: ColorScheme) => StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 20,
-    color: colors.text,
-    paddingRight: 30,
-    backgroundColor: colors.card,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 20,
-    color: colors.text,
-    paddingRight: 30,
-    backgroundColor: colors.card,
-  },
+inputIOS: {
+  fontSize: 16,
+  paddingVertical: 12,
+  paddingHorizontal: 10,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 20,
+  color: colors.text,
+  paddingRight: 30,
+  backgroundColor: colors.card,
+},
+inputAndroid: {
+  fontSize: 16,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 20,
+  color: colors.text,
+  paddingRight: 30,
+  backgroundColor: colors.card,
+},
+iconContainer: {
+  top: 10,
+  right: 12,
+},
 });
