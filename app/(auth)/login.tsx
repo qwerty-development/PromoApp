@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -9,21 +9,33 @@ import {
   KeyboardAvoidingView,
   Platform,
   useColorScheme,
+  Animated,
+  Image,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const logoPosition = useRef(new Animated.Value(-100)).current;
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  useEffect(() => {
+    Animated.spring(logoPosition, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 5,
+      friction: 3,
+    }).start();
+  }, []);
 
   async function handleLogin() {
     setLoading(true);
@@ -73,6 +85,13 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <Animated.View style={[styles.logoContainer, { transform: [{ translateY: logoPosition }] }]}>
+        <Image
+          source={require('../../assets/logo/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
         <Text style={[styles.subtitle, { color: colors.text }]}>Sign in to continue</Text>
@@ -127,6 +146,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoContainer: {
+    position: 'absolute',
+    top: height * 0.1,
+    alignSelf: 'center',
+  },
+  logo: {
+    width: 180,
+    height: 180,
+  },
   content: {
     width: width * 0.9,
     maxWidth: 400,
@@ -135,6 +163,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
+    marginTop: 10,
     marginBottom: 8,
     textAlign: 'center',
   },

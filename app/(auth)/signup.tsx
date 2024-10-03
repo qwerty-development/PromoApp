@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -12,13 +12,15 @@ import {
   ScrollView,
   useColorScheme,
   ActivityIndicator,
+  Animated,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface InputFieldProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -64,9 +66,19 @@ export default function SignupScreen() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const logoPosition = useRef(new Animated.Value(-100)).current;
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  useEffect(() => {
+    Animated.spring(logoPosition, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 5,
+      friction: 3,
+    }).start();
+  }, []);
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -131,6 +143,13 @@ export default function SignupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <Animated.View style={[styles.logoContainer, { transform: [{ translateY: logoPosition }] }]}>
+          <Image
+            source={require('../../assets/logo/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
         <View style={styles.content}>
           <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>Sign up to get started</Text>
@@ -205,6 +224,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 40,
+  },
+  logoContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 180,
+    height: 180,
   },
   content: {
     width: width * 0.9,

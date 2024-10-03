@@ -3,22 +3,18 @@
     "name": "PromoApp",
     "slug": "3roudat",
     "notification": {
-      "icon": "assets/3roudat-logo.png",
-      "color": "#ffffff",
+      "icon": "./assets/logo/icon.png",
+      "color": "#34495e",
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "#{unread_notifications} new notifications"
     },
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/logo/icon.png",
+    "backgroundColor":"34495e",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -38,9 +34,9 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
+          "icon": "./assets/logo/icon.png",
+          "color": "#34495e",
+          "sounds": ["./assets/level-up-191997.mp3"]
         }
       ]
     ],
