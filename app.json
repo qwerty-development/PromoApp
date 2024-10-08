@@ -12,7 +12,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo/icon.png",
-    "backgroundColor":"34495e",
+    "backgroundColor":"#34495e",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {
