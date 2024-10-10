@@ -1,14 +1,16 @@
+
 import React, { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Linking, 
-  Image, 
-  View, 
-  TouchableOpacity, 
-  Alert, 
-  ScrollView, 
-  ActivityIndicator, 
-  Dimensions 
+import {
+  StyleSheet,
+  Linking,
+  Image,
+  View,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+  Dimensions,
+  Share
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
@@ -26,7 +28,7 @@ import { BlurView } from 'expo-blur';
 interface Promotion {
   pending: number;
   id: string;
-  seller_id:string;
+  seller_id: string;
   title: string;
   description: string;
   start_date: string;
@@ -42,7 +44,7 @@ interface Promotion {
     longitude: number;
     business_name: string;
     business_logo: string;
-    push_token:string;
+    push_token: string;
   };
 }
 
@@ -57,6 +59,20 @@ export default function PromotionDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const router = useRouter();
+  const handleShare = async () => {
+    if (!promotion) return;
+
+    try {
+      await Share.share({
+        message: `Check out this great promotion: ${promotion.title}\n${promotion.description}\nAvailable at ${promotion.seller.business_name}`,
+        title: promotion.title,
+
+      }
+      );
+    } catch (error) {
+      console.error('Error sharing promotion:', error);
+    }
+  };
 
   useEffect(() => {
     fetchPromotionDetails();
@@ -119,11 +135,13 @@ export default function PromotionDetailScreen() {
     }
   }
 
+
+
   async function updateLocalClaimedStatus(claimed: boolean) {
     try {
       const claimedPromotions = await AsyncStorage.getItem('claimedPromotions');
       let claimedPromotionsArray = claimedPromotions ? JSON.parse(claimedPromotions) : [];
-      
+
       if (claimed && !claimedPromotionsArray.includes(id)) {
         claimedPromotionsArray.push(id);
       } else if (!claimed && claimedPromotionsArray.includes(id)) {
@@ -144,8 +162,10 @@ export default function PromotionDetailScreen() {
 
   const getPublicUrl = (path: string) => {
     if (!path) return null;
-    const cleanPath = path.replace(/^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/promotion-banners\//, '');
-    const { data } = supabase.storage.from('promotion-banners').getPublicUrl(cleanPath);
+    if (path.startsWith('http')) return path; // If it's already a full URL, return it as is
+    const { data } = supabase.storage
+      .from('logos') // Change this to 'logos' for business logos
+      .getPublicUrl(path);
     return data?.publicUrl;
   };
 
@@ -155,10 +175,10 @@ export default function PromotionDetailScreen() {
       Alert.alert('Error', 'Unable to claim promotion. Please try again later.');
       return;
     }
-  
+
     try {
       console.log('Attempting to claim promotion:', { userId: user.id, promotionId: promotion.id });
-  
+
       // Claim the promotion
       const { data, error } = await supabase
         .from('claimed_promotions')
@@ -170,33 +190,33 @@ export default function PromotionDetailScreen() {
         })
         .select()
         .single();
-  
+
       if (error) throw error;
-  
+
       console.log('Promotion claimed successfully:', data);
-  
+
       // Update the promotion's pending count
       const { error: updateError } = await supabase
         .from('promotions')
         .update({ pending: (promotion.pending || 0) + 1 })
         .eq('id', promotion.id);
-  
+
       if (updateError) throw updateError;
-  
+
       console.log('Promotion pending count updated');
-  
+
       // Fetch the seller's push token
       const { data: sellerData, error: sellerError } = await supabase
-      .from('users')
-      .select('id, push_token')
-      .eq('id', promotion.seller_id)
-      .single();
-  
+        .from('users')
+        .select('id, push_token')
+        .eq('id', promotion.seller_id)
+        .single();
+
       if (sellerError) throw sellerError;
-  
+
       if (sellerData && sellerData.push_token) {
         console.log('Sending notification to seller:', sellerData.push_token);
-      
+
         const message = {
           to: sellerData.push_token,
           sound: 'default',
@@ -204,7 +224,7 @@ export default function PromotionDetailScreen() {
           body: `${user.user_metadata?.full_name || 'A user'} claimed the promotion "${promotion.title}" (${(promotion.pending || 0) + 1}/${promotion.quantity} claimed)`,
           data: { promotionId: promotion.id },
         };
-      
+
         try {
           const response = await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
@@ -215,7 +235,7 @@ export default function PromotionDetailScreen() {
             },
             body: JSON.stringify(message),
           });
-      
+
           if (!response.ok) {
             console.error('Failed to send notification:', await response.text());
           } else {
@@ -227,7 +247,7 @@ export default function PromotionDetailScreen() {
       } else {
         console.log('No push token found for seller');
       }
-  
+
       setIsClaimed(true);
       updateLocalClaimedStatus(true);
       Alert.alert('Success', 'Promotion claimed successfully! Your QR code is now ready to be scanned.');
@@ -275,20 +295,15 @@ export default function PromotionDetailScreen() {
           colors={['transparent', 'rgba(0,0,0,0.8)']}
           style={styles.bannerGradient}
         >
-          <View style={styles.businessInfoContainer}>
-            {businessLogoUrl && (
-              <Image
-                source={{ uri: businessLogoUrl }}
-                style={styles.businessLogo}
-                resizeMode="contain"
-              />
-            )}
-            <ThemedText style={[styles.businessName, { color: colors.background }]}>{promotion.seller.business_name}</ThemedText>
-          </View>
+
+          <TouchableOpacity onPress={handleShare} style={styles.shareButton}>
+            <Ionicons name="share-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
         </LinearGradient>
       </View>
 
       <View style={styles.contentContainer}>
+
         <ThemedText style={[styles.title, { color: colors.text }]}>{promotion.title}</ThemedText>
 
         <View style={styles.tagsContainer}>
@@ -338,8 +353,24 @@ export default function PromotionDetailScreen() {
           </View>
         </View>
 
+
+        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Seller</ThemedText>
+        <View style={styles.businessInfoContainer}>
+          {businessLogoUrl && (
+            <Image
+              source={{ uri: businessLogoUrl }}
+              style={styles.businessLogo}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+        <ThemedText style={[styles.businessName, { color: colors.text }]}>
+          {promotion.seller.business_name}
+        </ThemedText>
+
+        
+
         <View style={styles.section}>
-          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Location</ThemedText>
           <MapView
             style={styles.map}
             initialRegion={{
@@ -360,8 +391,8 @@ export default function PromotionDetailScreen() {
         </View>
 
         <TouchableOpacity onPress={handleCallSeller} style={[styles.contactButton, { backgroundColor: colors.secondary }]}>
-          <Ionicons name="call-outline" size={20} color={colors.background} />
-          <ThemedText style={[styles.contactInfo, { color: colors.background }]}>
+          <Ionicons name="call-outline" size={20} color={colors.text} />
+          <ThemedText style={[styles.contactInfo, { color: colors.text }]}>
             Contact Seller
           </ThemedText>
         </TouchableOpacity>
@@ -374,8 +405,8 @@ export default function PromotionDetailScreen() {
 
         {isClaimed && (
           <BlurView intensity={100} tint={colorScheme} style={[styles.statusContainer, { backgroundColor: colors.success + '80' }]}>
-            <Ionicons name="checkmark-circle-outline" size={24} color={colors.background} />
-            <ThemedText style={[styles.statusText, { color: colors.background }]}>
+            <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
+            <ThemedText style={[styles.statusText, { color: colors.text }]}>
               Promotion Claimed
             </ThemedText>
           </BlurView>
@@ -395,6 +426,11 @@ export default function PromotionDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  line: {
+    height: 1, // Thin line
+    width: '100%',
+    marginVertical: 10, // Adjust for spacing
+  },
   container: {
     flex: 1,
   },
@@ -421,29 +457,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  bannerGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
+
   businessInfoContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20, // Adjust this value to control vertical spacing if needed
   },
   businessLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-    backgroundColor: 'white',
+    width: 100,
+    height: 100,
+    borderRadius: 50, 
+    backgroundColor: '#fff',
   },
+
   businessName: {
     fontSize: 18,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 10, // Space between logo and text
   },
   contentContainer: {
     padding: 16,
@@ -563,5 +594,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  bannerGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    justifyContent: 'flex-end',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+
+  shareButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
 });

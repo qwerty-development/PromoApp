@@ -10,6 +10,7 @@ import {
   Image,
   FlatList,
   Dimensions,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -21,7 +22,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import TimeLeftTag from '../../components/TimeLeftTag';
 import { Colors } from '@/constants/Colors';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -55,7 +56,7 @@ interface Industry {
   icon: string;
 }
 
-const FEATURED_ITEM_SIZE = width * 0.7;
+const FEATURED_ITEM_SIZE = width / 1.8;
 const ITEMS_PER_PAGE = 10;
 
 export default function HomeScreen() {
@@ -139,7 +140,7 @@ export default function HomeScreen() {
       setLoadingMore(false);
     }
   };
-  
+
 
   const fetchIndustries = async () => {
     const { data, error } = await supabase
@@ -248,33 +249,45 @@ export default function HomeScreen() {
     const savings = calculateSavings(item.original_price, item.promotional_price);
 
     return (
-      <TouchableOpacity
-        onPress={() => handlePromotionPress(item.id)}
-        style={styles.featuredPromotionItem}
-      >
-        <Image
-          source={{ uri: bannerUrl ?? undefined }}
-          style={styles.featuredPromotionImage}
-        />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
-          style={styles.featuredPromotionGradient}
+      <View>
+        <TouchableOpacity
+          onPress={() => handlePromotionPress(item.id)}
+          style={styles.featuredPromotionItem}
         >
-          <ThemedText style={styles.featuredPromotionTitle}>
-            {item.title}
-          </ThemedText>
-          <View style={styles.featuredPromotionInfo}>
-            <ThemedText style={styles.featuredPromotionBusiness}>
+          <Image
+            source={{ uri: bannerUrl ?? undefined }}
+            style={styles.featuredPromotionImage}
+          />
+          {savings !== null && (
+            <View style={[styles.savingsTagSmall, { backgroundColor: colors.accent }]}>
+              <ThemedText style={[styles.savingsText, { color: colors.background }]}>
+                Save {savings.toFixed(0)}%
+              </ThemedText>
+            </View>
+          )}
+          <View style={[styles.businessLogoContainer, { backgroundColor: colors.background }]}>
+            <Image
+              source={{ uri: getPublicUrl(item.seller.business_logo) ?? undefined }}
+              style={styles.businessLogo}
+            />
+            <ThemedText style={[styles.featuredPromotionBusiness, { color: colors.text }]}>
               {item.seller.business_name}
             </ThemedText>
-            {savings !== null && (
-              <View style={[styles.savingsTag, { backgroundColor: colors.accent }]}>
-                <ThemedText style={[styles.savingsText, { color: colors.background }]}>Save {savings.toFixed(0)}%</ThemedText>
-              </View>
-            )}
           </View>
-        </LinearGradient>
-      </TouchableOpacity>
+          <View style={[styles.industryContainer, { backgroundColor: colors.secondary }]}>
+            <FontAwesome5 name={getIndustryIcon(item.industry.name)} size={12} color={colors.background} />
+            <ThemedText style={[styles.industryName, { color: colors.background }]}>{item.industry.name}</ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.promotionDetailsContainer}>
+          <ThemedText style={[styles.featuredPromotionTitle, { color: colors.text }]}>
+            {item.title}
+          </ThemedText>
+
+        </View>
+      </View>
+
     );
   };
 
@@ -293,6 +306,8 @@ export default function HomeScreen() {
             source={{ uri: bannerUrl ?? undefined }}
             style={styles.promotionBanner}
           />
+          <View>
+          </View>
           <View style={styles.timeLeftContainer}>
             <TimeLeftTag endDate={item.end_date} />
           </View>
@@ -315,7 +330,7 @@ export default function HomeScreen() {
             <ThemedText style={[styles.promotionDescription, { color: colors.text }]} numberOfLines={2}>
               {item.description}
             </ThemedText>
-            
+
             <View style={[styles.quantityInfo, { borderColor: colors.border }]}>
               <View style={styles.quantityItem}>
                 <FontAwesome5 name="users" size={14} color={colors.text} style={styles.quantityIcon} />
@@ -332,20 +347,21 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.promotionFooter}>
+
               <View style={styles.businessInfo}>
                 {businessLogoUrl ? (
                   <Image
                     source={{ uri: businessLogoUrl }}
-                    style={styles.businessLogo}
+                    style={styles.businessLogoBig}
                   />
                 ) : (
-                  <View style={[styles.businessLogo, { backgroundColor: colors.primary }]}>
+                  <View style={[styles.businessLogoBig, { backgroundColor: colors.primary }]}>
                     <ThemedText style={[styles.businessLogoPlaceholder, { color: colors.background }]}>
                       {item.seller.business_name.charAt(0)}
                     </ThemedText>
                   </View>
                 )}
-                <ThemedText style={[styles.businessName, { color: colors.text }]}>
+                <ThemedText style={[styles.businessNameBig, { color: colors.text }]}>
                   {item.seller.business_name}
                 </ThemedText>
               </View>
@@ -372,7 +388,8 @@ export default function HomeScreen() {
   return (
     <SafeAreaProvider>
       <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
-        <BlurView intensity={100} style={[styles.searchContainer, { backgroundColor: colors.border }]}>
+        <SafeAreaView>
+        <BlurView  style={[styles.searchContainer, { backgroundColor: colors.border }]}>
           <FontAwesome5
             name="search"
             size={20}
@@ -473,20 +490,89 @@ export default function HomeScreen() {
             }
           />
         )}
+        </SafeAreaView>
       </ThemedView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  featuredPromotionItem: {
+    width: FEATURED_ITEM_SIZE,
+    height: FEATURED_ITEM_SIZE / 2,
+    marginRight: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    position: 'relative',
+  },
+
+  featuredPromotionImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  businessLogoContainer: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    padding: 2,
+    borderTopRightRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    bottom: 0,
+    left: 0,
+  },
+
+  industryContainer: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    padding: 2,
+    borderBottomLeftRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    top: 0,
+    right: 0,
+  },
+
+  savingsTagSmall: {
+    position: 'absolute',
+    padding: 2,
+    borderTopLeftRadius: 10,
+    bottom: 0,
+    right: 0,
+  },
+
+  promotionDetailsContainer: {
+    paddingVertical: 10,
+  },
+
+  featuredPromotionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: FEATURED_ITEM_SIZE, // Same width as the featured image
+    overflow: 'hidden',   // Hides any overflow beyond the width
+
+  },
+
+  featuredPromotionBusiness: {
+    fontSize: 12,
+    color: Colors.light.background,
+  },
+
   container: {
     flex: 1,
+    paddingBottom:140,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 25,
     paddingHorizontal: 15,
+    marginBottom:20,
     marginHorizontal: 16,
     marginVertical: 10,
     height: 50,
@@ -520,6 +606,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 10,
+    marginBottom:10,
     borderRadius: 20,
     marginRight: 10,
   },
@@ -552,47 +639,10 @@ const styles = StyleSheet.create({
   featuredList: {
     paddingLeft: 16,
   },
-  featuredPromotionItem: {
-    width: FEATURED_ITEM_SIZE,
-    height: FEATURED_ITEM_SIZE,
-    marginRight: 16,
-    borderRadius: 14,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  featuredPromotionImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  featuredPromotionGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    justifyContent: 'flex-end',
-    padding: 15,
-  },
-  featuredPromotionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.light.background,
-    marginBottom: 5,
-  },
-  featuredPromotionInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  featuredPromotionBusiness: {
-    fontSize: 14,
-    color: Colors.light.background,
-  },
+
+
+
+
   promotionItem: {
     marginHorizontal: 16,
     marginBottom: 20,
@@ -647,20 +697,37 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
+
+  businessInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   promotionFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
   },
-  businessInfo: {
+  footerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  shareButton: {
+    padding: 4,
+    marginLeft: 'auto', // This pushes the share button to the end of the line
   },
   businessLogo: {
     width: 24,
     height: 24,
     borderRadius: 12,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  businessLogoBig: {
+    width: 45,
+    height: 45,
+    borderRadius: 20,
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -671,6 +738,10 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 14,
+    fontWeight: '500',
+  },
+  businessNameBig: {
+    fontSize: 16,
     fontWeight: '500',
   },
   industryBadge: {

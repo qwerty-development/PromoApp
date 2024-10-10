@@ -1,3 +1,4 @@
+//root layout
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -56,11 +57,11 @@ function RootLayoutNav() {
     <Stack>
       <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(seller)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(admin)" options={{ headerShown: false }} />
       <Stack.Screen name="confirm-email" options={{ headerShown: false }} />
-      
+
       <Stack.Screen
         name="promotion/[id]"
         options={{
@@ -81,17 +82,22 @@ function RootLayoutNav() {
           presentation: 'modal',
         }}
       />
-      <Stack.Screen
-        name="edit-promotion"
+
+
+      <Stack.Screen 
+        name="edit-promotion/[id]"
         options={{
+          presentation: 'modal',
           headerShown: true,
           headerTitle: 'Edit Promotion',
-          headerBackTitle: 'Back',
-          gestureEnabled: true,
-          presentation: 'modal',
+          headerTintColor: 'white', // This will make the back button white
+          headerStyle: {
+            backgroundColor: 'purple', // This should match your screen background
+          },
         }}
       />
-      
+
+
       <Stack.Screen name="edit-profile" options={{ headerShown: true, headerTitle: 'Edit Profile', headerBackTitle: 'Back', gestureEnabled: true }} />
       <Stack.Screen name="payment-methods" options={{ headerShown: true, headerTitle: 'Payment Methods', headerBackTitle: 'Back', gestureEnabled: true }} />
       <Stack.Screen name="notification-settings" options={{ headerShown: true, headerTitle: 'Notification Settings', headerBackTitle: 'Back', gestureEnabled: true }} />
@@ -100,7 +106,7 @@ function RootLayoutNav() {
       <Stack.Screen name="give-feedback" options={{ headerShown: true, headerTitle: 'Give Feedback', headerBackTitle: 'Back', gestureEnabled: true }} />
       <Stack.Screen name="terms-of-service" options={{ headerShown: true, headerTitle: 'Terms of Service', headerBackTitle: 'Back', gestureEnabled: true }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: true, headerTitle: 'Privacy Policy', headerBackTitle: 'Back', gestureEnabled: true }} />
-      
+
       <Stack.Screen name="+not-found" options={{ presentation: 'modal' }} />
     </Stack>
   );

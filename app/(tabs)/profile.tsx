@@ -18,6 +18,7 @@ import { useColorScheme } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UserProfile {
   id: string;
@@ -118,70 +119,77 @@ export default function ProfileScreen() {
   );
 
   return (
+
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <BlurView intensity={100} tint={colorScheme} style={styles.headerContainer}>
-        <Image
-          source={{ uri: userProfile?.avatar_url || 'https://via.placeholder.com/150' }}
-          style={styles.avatar}
-        />
-        <View style={styles.userInfo}>
-          <ThemedText style={styles.userName}>{userProfile?.name || 'User Name'}</ThemedText>
-          <ThemedText style={styles.userEmail}>{userProfile?.email || 'user@example.com'}</ThemedText>
+      <SafeAreaView>
+        <BlurView intensity={100} tint={colorScheme} style={styles.headerContainer}>
+          <Image
+            source={{ uri: userProfile?.avatar_url || 'https://via.placeholder.com/150' }}
+            style={styles.avatar}
+          />
+          <View style={styles.userInfo}>
+            <ThemedText style={styles.userName}>{userProfile?.name || 'User Name'}</ThemedText>
+            <ThemedText style={styles.userEmail}>{userProfile?.email || 'user@example.com'}</ThemedText>
+          </View>
+          <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.primary }]} onPress={handleEditProfile}>
+            <ThemedText style={[styles.editButtonText, { color: colors.background }]}>Edit Profile</ThemedText>
+          </TouchableOpacity>
+        </BlurView>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <ThemedText style={styles.statValue}>23</ThemedText>
+            <ThemedText style={styles.statLabel}>Claimed</ThemedText>
+          </View>
+          <View style={styles.statItem}>
+            <ThemedText style={styles.statValue}>15</ThemedText>
+            <ThemedText style={styles.statLabel}>Redeemed</ThemedText>
+          </View>
+          <View style={styles.statItem}>
+            <ThemedText style={styles.statValue}>$142</ThemedText>
+            <ThemedText style={styles.statLabel}>Saved</ThemedText>
+          </View>
         </View>
-        <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.primary }]} onPress={handleEditProfile}>
-          <ThemedText style={[styles.editButtonText, { color: colors.background }]}>Edit Profile</ThemedText>
+
+
+
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Account</ThemedText>
+          {renderSection('Personal Information', 'user-circle', handleEditProfile)}
+          {renderSection('Payment Methods', 'credit-card', handlePaymentMethods)}
+          {renderSection('Notification Settings', 'bell', handleNotificationSettings)}
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Support</ThemedText>
+          {renderSection('Help Center', 'question-circle', handleHelpCenter)}
+          {renderSection('Report a Problem', 'exclamation-circle', handleReportProblem)}
+          {renderSection('Give Feedback', 'comment-alt', handleGiveFeedback)}
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
+          {renderSection('Terms of Service', 'file-contract', handleTerms)}
+          {renderSection('Privacy Policy', 'shield-alt', handlePrivacy)}
+        </View>
+
+        <TouchableOpacity style={[styles.signOutButton, { backgroundColor: colors.error }]} onPress={handleSignOut}>
+          <ThemedText style={[styles.signOutButtonText, { color: colors.background }]}>Sign Out</ThemedText>
         </TouchableOpacity>
-      </BlurView>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>23</ThemedText>
-          <ThemedText style={styles.statLabel}>Claimed</ThemedText>
-        </View>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>15</ThemedText>
-          <ThemedText style={styles.statLabel}>Redeemed</ThemedText>
-        </View>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>$142</ThemedText>
-          <ThemedText style={styles.statLabel}>Saved</ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>Account</ThemedText>
-        {renderSection('Personal Information', 'user-circle', handleEditProfile)}
-        {renderSection('Payment Methods', 'credit-card', handlePaymentMethods)}
-        {renderSection('Notification Settings', 'bell', handleNotificationSettings)}
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>Support</ThemedText>
-        {renderSection('Help Center', 'question-circle', handleHelpCenter)}
-        {renderSection('Report a Problem', 'exclamation-circle', handleReportProblem)}
-        {renderSection('Give Feedback', 'comment-alt', handleGiveFeedback)}
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
-        {renderSection('Terms of Service', 'file-contract', handleTerms)}
-        {renderSection('Privacy Policy', 'shield-alt', handlePrivacy)}
-      </View>
-
-      <TouchableOpacity style={[styles.signOutButton, { backgroundColor: colors.error }]} onPress={handleSignOut}>
-        <ThemedText style={[styles.signOutButtonText, { color: colors.background }]}>Sign Out</ThemedText>
-      </TouchableOpacity>
+      </SafeAreaView>
     </ScrollView>
+
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor:'black',
     padding: 20,
     marginBottom: 20,
   },
@@ -217,7 +225,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginBottom: 20,
     paddingVertical: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     borderRadius: 10,
     marginHorizontal: 20,
   },

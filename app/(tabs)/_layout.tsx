@@ -74,7 +74,7 @@ export default function TabsLayout() {
           color: colors.text,
           fontWeight: '600',
         },
-        headerTintColor: colors.primary,
+        headerTintColor: colors.background,
         headerBackground: () => (
           <BlurView 
             tint={colorScheme === 'dark' ? 'dark' : 'light'} 
@@ -87,7 +87,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          headerShown: true,
+          headerShown: false,
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
@@ -97,7 +97,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="my-qr-codes"
         options={{
-          headerShown: true,
+          headerShown: false,
           headerTitle: 'My QR Codes',
           title: 'My QR Codes',
           tabBarIcon: ({ color, focused }) => (
@@ -108,7 +108,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          headerShown: true,
+          headerShown: false,
           headerTitle: 'Profile',
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
@@ -116,19 +116,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {userRole === 'admin' && (
-        <Tabs.Screen
-          name="admin"
-          options={{
-            headerShown: true,
-            headerTitle: 'Admin',
-            title: 'Admin',
-            tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'settings' : 'settings-outline'} color={color} />
-            ),
-          }}
-        />
-      )}
     </Tabs>
   );
 }

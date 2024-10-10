@@ -21,6 +21,7 @@ import { Colors, ColorScheme } from '@/constants/Colors';
 import { format, differenceInDays } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ClaimedPromotion {
   id: string;
@@ -123,34 +124,34 @@ export default function MyQRCodesScreen() {
             style={styles.promotionGradient}
           >
             <View style={styles.promotionContent}>
-              <ThemedText style={[styles.promotionTitle, { color: colors.background }]} numberOfLines={2}>
+              <ThemedText style={[styles.promotionTitle, { color: colors.textonbanner }]} numberOfLines={2}>
                 {item.title}
               </ThemedText>
               <View style={styles.promotionDetails}>
                 <View style={styles.priceContainer}>
-                  <ThemedText style={[styles.promotionPrice, { color: colors.background }]}>
+                  <ThemedText style={[styles.promotionPrice, { color: colors.textonbanner}]}>
                     ${item.promotional_price.toFixed(2)}
                   </ThemedText>
-                  <ThemedText style={[styles.originalPrice, { color: colors.background }]}>
+                  <ThemedText style={[styles.originalPrice, {  color: colors.textonbanner }]}>
                     ${item.original_price.toFixed(2)}
                   </ThemedText>
                 </View>
                 <View style={[styles.discountTag, { backgroundColor: colors.accent }]}>
-                  <ThemedText style={[styles.promotionDiscount, { color: colors.background }]}>
+                  <ThemedText style={[styles.promotionDiscount, { color: colors.text }]}>
                     {discountPercentage.toFixed(0)}% OFF
                   </ThemedText>
                 </View>
               </View>
               <View style={styles.promotionFooter}>
                 <View style={[styles.expiryTag, { backgroundColor: daysUntilExpiry <= 3 ? colors.error : colors.success }]}>
-                  <FontAwesome5 name="clock" size={12} color={colors.background} />
-                  <ThemedText style={[styles.expiryText, { color: colors.background }]}>
+                  <FontAwesome5 name="clock" size={12} color={colors.text} />
+                  <ThemedText style={[styles.expiryText, { color: colors.text }]}>
                     {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
                   </ThemedText>
                 </View>
                 <View style={[styles.statusTag, { backgroundColor: item.scanned ? colors.success : colors.primary }]}>
-                  <FontAwesome5 name={item.scanned ? "check-circle" : "hourglass-half"} size={12} color={colors.background} />
-                  <ThemedText style={[styles.statusText, { color: colors.background }]}>
+                  <FontAwesome5 name={item.scanned ? "check-circle" : "hourglass-half"} size={12} color={colors.text} />
+                  <ThemedText style={[styles.statusText, { color: colors.text }]}>
                     {item.scanned ? 'Claimed' : 'Pending'}
                   </ThemedText>
                 </View>
@@ -164,6 +165,7 @@ export default function MyQRCodesScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView>
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[
@@ -272,6 +274,7 @@ export default function MyQRCodesScreen() {
           </View>
         </BlurView>
       </Modal>
+      </SafeAreaView>
     </ThemedView>
   );
 }
@@ -284,8 +287,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 20,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   tab: {
     flex: 1,

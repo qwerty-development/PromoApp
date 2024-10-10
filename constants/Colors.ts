@@ -1,6 +1,7 @@
 export const Colors = {
   light: {
-    text: '#2C3E50',         // Dark slate gray for primary text
+    text: '#2C3E50',  
+    textonbanner:'#ECF0F1',       // Dark slate gray for primary text
     background: '#F5F7FA',   // Light grayish blue for background
     card: '#FFFFFF',         // Pure white for cards
     primary: '#34495E',      // Dark slate blue for primary elements
@@ -16,9 +17,11 @@ export const Colors = {
     error: '#E74C3C',        // Soft red for error states
     warning: '#F39C12',      // Orange for warning states
     info: '#2980B9',         // Strong blue for info states
+    lineColor:'#34495E'
   },
   dark: {
     text: '#ECF0F1',         // Very light grayish blue for text
+    textonbanner:'#ECF0F1',
     background: '#2C3E50',   // Dark slate gray for background
     card: '#34495E',         // Dark slate blue for cards
     primary: '#3498DB',      // Bright blue for primary elements
@@ -30,10 +33,11 @@ export const Colors = {
     border: '#465C6E',       // Darker grayish blue for borders
     shadow: '#1A252F',       // Very dark grayish blue for shadows
     overlay: 'rgba(236, 240, 241, 0.1)', // Subtle light overlay
-    success: '#27AE60',      // Emerald green for success states (same as light)
+    success: '#4BB543',      // Emerald green for success states (same as light)
     error: '#E74C3C',        // Soft red for error states (same as light)
     warning: '#F39C12',      // Orange for warning states (same as light)
     info: '#3498DB',         // Bright blue for info states
+    lineColor:'#FFFFFF'
   },
 };
 
