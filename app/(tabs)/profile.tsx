@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 interface UserProfile {
 	id: string
@@ -141,7 +142,8 @@ export default function ProfileScreen() {
 		try {
 			setIsLoading(true)
 			await supabase.auth.signOut()
-			router.replace('/login')
+			await AsyncStorage.clear()
+			router.replace('/(auth)/login')
 		} catch (error) {
 			console.error('Error signing out:', error)
 			Alert.alert('Error', 'Failed to sign out. Please try again.')
@@ -205,10 +207,12 @@ export default function ProfileScreen() {
 		}
 
 		try {
-			const { error: signInError } = await supabase.auth.signInWithPassword({
-				email: user?.email!,
-				password: currentPassword
-			})
+			// First verify current password
+			const { data: signInData, error: signInError } =
+				await supabase.auth.signInWithPassword({
+					email: user?.email!,
+					password: currentPassword
+				})
 
 			if (signInError) {
 				setPasswordChangeError('Current password is incorrect')
@@ -216,6 +220,7 @@ export default function ProfileScreen() {
 				return
 			}
 
+			// Update password
 			const { error } = await supabase.auth.updateUser({
 				password: newPassword
 			})
@@ -223,10 +228,26 @@ export default function ProfileScreen() {
 			if (error) throw error
 
 			setPasswordChangeSuccess('Password changed successfully')
-			setTimeout(() => {
-				handleModalClose()
-				handleSignOut()
-			}, 2000)
+
+			// Wait for success message to be visible
+			await new Promise(resolve => setTimeout(resolve, 1500))
+
+			// Clear modal and states
+			handleModalClose()
+
+			// Clear local session
+			await AsyncStorage.removeItem('supabase-auth')
+
+			// Sign out and redirect
+			const { error: signOutError } = await supabase.auth.signOut({
+				scope: 'local'
+			})
+
+			if (signOutError) {
+				console.error('Error signing out:', signOutError)
+				return
+			}
+			router.push('/(auth)/login')
 		} catch (error) {
 			console.error('Error changing password:', error)
 			setPasswordChangeError('Failed to change password. Please try again.')
