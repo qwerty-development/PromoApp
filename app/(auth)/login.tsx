@@ -59,7 +59,6 @@ export default function LoginScreen() {
 						.insert({ id: user.id, email: user.email, role: 'user' })
 
 					if (insertError) throw insertError
-
 					;({ data, error: roleError } = await supabase
 						.from('users')
 						.select('role')
@@ -165,12 +164,30 @@ export default function LoginScreen() {
 						</Text>
 					</TouchableOpacity>
 				</Link>
+				<View style={styles.forgotPasswordContainer}>
+					<TouchableOpacity
+						onPress={() => router.push('/(auth)/forgot-password')}>
+						<Text
+							style={[styles.forgotPasswordText, { color: colors.primary }]}>
+							Forgot Password?
+						</Text>
+					</TouchableOpacity>
+				</View>
 			</View>
 		</KeyboardAvoidingView>
 	)
 }
 
 const styles = StyleSheet.create({
+	forgotPasswordContainer: {
+		width: '100%',
+		alignItems: 'center',
+		marginBottom: 24
+	},
+	forgotPasswordText: {
+		fontSize: 14,
+		fontWeight: '600'
+	},
 	container: {
 		flex: 1,
 		justifyContent: 'center',

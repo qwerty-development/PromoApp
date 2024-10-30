@@ -69,6 +69,10 @@ function RootLayoutNav() {
 			<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
 			<Stack.Screen name='(admin)' options={{ headerShown: false }} />
 			<Stack.Screen name='confirm-email' options={{ headerShown: false }} />
+			<Stack.Screen
+				name='(auth)/forgot-password'
+				options={{ headerShown: false }}
+			/>
 
 			<Stack.Screen
 				name='promotion/[id]'
