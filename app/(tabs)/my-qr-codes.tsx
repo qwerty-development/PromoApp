@@ -146,7 +146,7 @@ export default function MyQRCodesScreen() {
                 <View style={[styles.expiryTag, { backgroundColor: daysUntilExpiry <= 3 ? colors.error : colors.success }]}>
                   <FontAwesome5 name="clock" size={12} color={colors.text} />
                   <ThemedText style={[styles.expiryText, { color: colors.text }]}>
-                    {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                    {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expired'}
                   </ThemedText>
                 </View>
                 <View style={[styles.statusTag, { backgroundColor: item.scanned ? colors.success : colors.primary }]}>
