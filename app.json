@@ -3,7 +3,7 @@
     "name": "PromoApp",
     "slug": "3roudat",
     "notification": {
-      "icon": "./assets/logo/icon.png",
+      "icon": "./assets/logo/Full-logo.png",
       "color": "#34495e",
       "iosDisplayInForeground": true,
       "androidMode": "default",
@@ -11,7 +11,7 @@
     },
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/icon.png",
+    "icon": "./assets/logo/Full-logo.png",
     "backgroundColor": "#34495e",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",

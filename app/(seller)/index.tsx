@@ -26,6 +26,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { BlurView } from 'expo-blur';
 
 const { height } = Dimensions.get('window');
 
@@ -36,7 +37,7 @@ interface Promotion {
   start_date: string;
   end_date: string;
   banner_url: string;
-  is_approved: boolean;
+  is_approved: boolean | null;
   industries: { name: string } | null;
   industry_id: number | null;
   quantity: number;
@@ -45,12 +46,16 @@ interface Promotion {
   original_price: number;
   promotional_price: number;
   unique_code: string;
+  created_at: string;
 }
 
 interface Industry {
   id: number;
   name: string;
 }
+
+type TabType = 'all' | 'approved' | 'pending' | 'rejected';
+type SortOption = 'newest' | 'oldest' | 'az' | 'za';
 
 export default function MyPromotionsScreen() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -59,6 +64,9 @@ export default function MyPromotionsScreen() {
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [industries, setIndustries] = useState<Industry[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [sortModalVisible, setSortModalVisible] = useState(false);
   const { user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -208,81 +216,264 @@ export default function MyPromotionsScreen() {
     }
   };
 
+  const filteredAndSortedPromotions = useCallback(() => {
+    let filtered = [...promotions];
+
+    // Filter by tab
+    if (activeTab !== 'all') {
+      filtered = filtered.filter(promo => {
+        if (activeTab === 'approved') return promo.is_approved === true;
+        if (activeTab === 'pending') return promo.is_approved === null;
+        if (activeTab === 'rejected') return promo.is_approved === false;
+        return true;
+      });
+    }
+
+    // Filter by search
+    if (searchQuery) {
+      filtered = filtered.filter(promo =>
+        promo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        promo.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Sort
+    switch (sortOption) {
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'oldest':
+        filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case 'az':
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'za':
+        filtered.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+    }
+
+    return filtered;
+  }, [promotions, activeTab, searchQuery, sortOption]);
+
   const renderPromotion = useCallback(({ item }: { item: Promotion }) => {
     const discountPercentage = ((item.original_price - item.promotional_price) / item.original_price) * 100;
     const daysLeft = Math.max(0, Math.ceil((new Date(item.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
 
     return (
-      <ThemedView style={[styles.promotionItem, { backgroundColor: colors.card }]}>
+      <View style={[styles.promotionCard, { backgroundColor: colors.card }]}>
         <Image source={{ uri: item.banner_url }} style={styles.bannerImage} />
         <LinearGradient
           colors={['rgba(0,0,0,0.7)', 'transparent']}
           style={styles.gradientOverlay}
         >
-          <View style={styles.daysLeftBadge}>
-            <ThemedText style={styles.daysLeftText}>{daysLeft} days left</ThemedText>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: item.is_approved ? '#4ecdc4' : '#ffd166' }]}>
-            <ThemedText style={styles.statusText}>{item.is_approved ? 'Active' : 'Pending'}</ThemedText>
+          <View style={styles.headerBadges}>
+            <View style={[styles.badge, getStatusBadgeStyle(item.is_approved)]}>
+              <ThemedText style={styles.badgeText}>
+                {item.is_approved === true ? 'Active' : item.is_approved === null ? 'Pending' : 'Rejected'}
+              </ThemedText>
+            </View>
+            <View style={[styles.badge, styles.daysLeftBadge]}>
+              <ThemedText style={styles.badgeText}>
+                {daysLeft} days left
+              </ThemedText>
+            </View>
           </View>
         </LinearGradient>
-        <View style={styles.promotionContent}>
-          <ThemedText style={[styles.promotionTitle, { color: colors.text }]}>{item.title}</ThemedText>
-          <View style={styles.priceRow}>
-            <ThemedText style={[styles.price, { color: colors.primary }]}>${item.promotional_price.toFixed(2)}</ThemedText>
-            <ThemedText style={styles.discount}>{discountPercentage.toFixed(0)}% OFF</ThemedText>
-          </View>
-          <ThemedText style={[styles.dateRange, { color: colors.text }]}>
-            {`${new Date(item.start_date).toLocaleDateString()} - ${new Date(item.end_date).toLocaleDateString()}`}
+
+        <View style={styles.contentContainer}>
+          <ThemedText style={styles.title} numberOfLines={2}>
+            {item.title}
           </ThemedText>
+
+          <View style={styles.priceSection}>
+            <View>
+              <ThemedText style={styles.originalPrice}>
+                ${item.original_price.toFixed(2)}
+              </ThemedText>
+              <ThemedText style={styles.promoPrice}>
+                ${item.promotional_price.toFixed(2)}
+              </ThemedText>
+            </View>
+            <View style={styles.discountBadge}>
+              <ThemedText style={styles.discountText}>
+                {discountPercentage.toFixed(0)}% OFF
+              </ThemedText>
+            </View>
+          </View>
+
           <View style={styles.statsRow}>
-            <StatItem icon="layers-outline" text={`${item.quantity - item.used_quantity - item.pending} available`} color={colors.primary} textColor={colors.text} />
-            <StatItem icon="hourglass-outline" text={`${item.pending} pending`} color={colors.primary} textColor={colors.text} />
-            <StatItem icon="checkmark-circle-outline" text={`${item.used_quantity} claimed`} color={colors.primary} textColor={colors.text} />
+            <StatItem
+              icon="layers-outline"
+              value={item.quantity - item.used_quantity - item.pending}
+              label="Available"
+              color={colors.primary}
+            />
+            <StatItem
+              icon="time-outline"
+              value={item.pending}
+              label="Pending"
+              color="#ffd166"
+            />
+            <StatItem
+              icon="checkmark-circle-outline"
+              value={item.used_quantity}
+              label="Claimed"
+              color="#4ecdc4"
+            />
           </View>
-          <ThemedText style={[styles.description, { color: colors.text }]} numberOfLines={2}>{item.description}</ThemedText>
-          <ThemedText style={[styles.industry, { color: colors.text }]}>
-            <Ionicons name="business-outline" size={12} color={colors.text} /> {item.industries?.name || 'N/A'}
+
+          <View style={styles.industryTag}>
+            <Ionicons name="business-outline" size={14} color={colors.text} />
+            <ThemedText style={styles.industryText}>
+              {item.industries?.name || 'N/A'}
+            </ThemedText>
+          </View>
+
+          <ThemedText style={styles.description} numberOfLines={2}>
+            {item.description}
           </ThemedText>
-          <View style={styles.buttonContainer}>
-            <ActionButton icon="create-outline" text="Edit" onPress={() => handleEdit(item)} color="#4ecdc4" />
-            <ActionButton icon="trash-outline" text="Delete" onPress={() => handleDelete(item.id)} color="#ff6b6b" />
+
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.primary }]}
+              onPress={() => handleEdit(item)}
+            >
+              <Ionicons name="create-outline" size={20} color="white" />
+              <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#ff6b6b' }]}
+              onPress={() => handleDelete(item.id)}
+            >
+              <Ionicons name="trash-outline" size={20} color="white" />
+              <ThemedText style={styles.actionButtonText}>Delete</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
-      </ThemedView>
+      </View>
     );
   }, [colors, handleDelete, handleEdit]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
-    <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchContainer, { backgroundColor: colors.border }]}>
-        <Ionicons name="search" size={20} color={colors.text} style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search promotions..."
-          placeholderTextColor={colors.text}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+    <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <View style={[styles.searchBar, { backgroundColor: colors.border }]}>
+          <Ionicons name="search" size={20} color={colors.text} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search promotions..."
+            placeholderTextColor={colors.text}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        <TouchableOpacity
+          style={[styles.sortButton, { backgroundColor: colors.border }]}
+          onPress={() => setSortModalVisible(true)}
+        >
+          <Ionicons name="funnel-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
-      <FlatList
-        data={promotions.filter(promo => 
-          promo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          promo.description.toLowerCase().includes(searchQuery.toLowerCase())
-        )}
-        renderItem={renderPromotion}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<ThemedText style={styles.emptyText}>No promotions found.</ThemedText>}
-        contentContainerStyle={styles.listContainer}
-      />
+
+      <View style={styles.tabs}>
+        {['all', 'approved', 'pending', 'rejected'].map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[
+              styles.tab,
+              activeTab === tab && styles.activeTab,
+              { borderBottomColor: activeTab === tab ? colors.primary : 'transparent' }
+            ]}
+            onPress={() => setActiveTab(tab as TabType)}
+          >
+            <ThemedText style={[
+              styles.tabText,
+              activeTab === tab && { color: colors.primary }
+            ]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </ThemedText>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredAndSortedPromotions()}
+          renderItem={renderPromotion}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.promotionList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={48} color={colors.text} />
+              <ThemedText style={styles.emptyText}>No promotions found</ThemedText>
+            </View>
+          }
+        />
+      )}
+
+      {/* Sort Modal */}
+      <Modal
+        visible={sortModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSortModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSortModalVisible(false)}
+        >
+          <View style={[styles.sortModalContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.sortModalHeader}>
+              <ThemedText style={styles.sortModalTitle}>Sort By</ThemedText>
+              <TouchableOpacity onPress={() => setSortModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            {[
+              { id: 'newest', label: 'Newest First', icon: 'time-outline' },
+              { id: 'oldest', label: 'Oldest First', icon: 'hourglass-outline' },
+              { id: 'az', label: 'A-Z', icon: 'arrow-down-outline' },
+              { id: 'za', label: 'Z-A', icon: 'arrow-up-outline' },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.sortOption,
+                  sortOption === option.id && styles.selectedSortOption,
+                ]}
+                onPress={() => {
+                  setSortOption(option.id as SortOption);
+                  setSortModalVisible(false);
+                }}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={20}
+                  color={sortOption === option.id ? colors.primary : colors.text}
+                />
+                <ThemedText
+                  style={[
+                    styles.sortOptionText,
+                    sortOption === option.id && { color: colors.primary },
+                  ]}
+                >
+                  {option.label}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Modal */}
       <Modal
         animationType="none"
         transparent={true}
@@ -313,14 +504,14 @@ export default function MyPromotionsScreen() {
                   <FormField
                     label="Title"
                     value={editingPromotion.title}
-                    onChangeText={(text: any) => setEditingPromotion({...editingPromotion, title: text})}
+                    onChangeText={(text: string) => setEditingPromotion({...editingPromotion, title: text})}
                     placeholder="Enter promotion title"
                     colors={colors}
                   />
                   <FormField
                     label="Description"
                     value={editingPromotion.description}
-                    onChangeText={(text: any) => setEditingPromotion({...editingPromotion, description: text})}
+                    onChangeText={(text: string) => setEditingPromotion({...editingPromotion, description: text})}
                     placeholder="Enter promotion description"
                     multiline
                     colors={colors}
@@ -328,19 +519,19 @@ export default function MyPromotionsScreen() {
                   <DatePickerField
                     label="Start Date"
                     value={new Date(editingPromotion.start_date)}
-                    onChange={(date: { toISOString: () => any; }) => setEditingPromotion({...editingPromotion, start_date: date.toISOString()})}
+                    onChange={(date: Date) => setEditingPromotion({...editingPromotion, start_date: date.toISOString()})}
                     colors={colors}
                   />
                   <DatePickerField
                     label="End Date"
                     value={new Date(editingPromotion.end_date)}
-                    onChange={(date: { toISOString: () => any; }) => setEditingPromotion({...editingPromotion, end_date: date.toISOString()})}
+                    onChange={(date: Date) => setEditingPromotion({...editingPromotion, end_date: date.toISOString()})}
                     colors={colors}
                   />
                   <IndustryPickerField
                     label="Industry"
                     value={editingPromotion.industry_id}
-                    onValueChange={(value: any) => setEditingPromotion({...editingPromotion, industry_id: value})}
+                    onValueChange={(value: number) => setEditingPromotion({...editingPromotion, industry_id: value})}
                     industries={industries}
                     colors={colors}
                     colorScheme={colorScheme}
@@ -374,7 +565,7 @@ export default function MyPromotionsScreen() {
                     onPress={handleUpdate}
                   >
                     <ThemedText style={styles.updateButtonText}>Update Promotion</ThemedText>
-                    </TouchableOpacity>
+                  </TouchableOpacity>
                 </>
               )}
             </ScrollView>
@@ -385,21 +576,15 @@ export default function MyPromotionsScreen() {
   );
 }
 
-const StatItem = ({ icon, text, color, textColor }:any) => (
+const StatItem = ({ icon, value, label, color }: any) => (
   <View style={styles.statItem}>
     <Ionicons name={icon} size={16} color={color} />
-    <ThemedText style={[styles.statText, { color: textColor }]}>{text}</ThemedText>
+    <ThemedText style={[styles.statValue, { color }]}>{value}</ThemedText>
+    <ThemedText style={styles.statLabel}>{label}</ThemedText>
   </View>
 );
 
-const ActionButton = ({ icon, text, onPress, color }:any) => (
-  <TouchableOpacity style={[styles.actionButton, { backgroundColor: color }]} onPress={onPress}>
-    <Ionicons name={icon} size={20} color="white" />
-    <ThemedText style={styles.buttonText}>{text}</ThemedText>
-  </TouchableOpacity>
-);
-
-const FormField = ({ label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default', colors }:any) => (
+const FormField = ({ label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default', colors }: any) => (
   <View style={styles.formField}>
     <ThemedText style={[styles.label, { color: colors.text }]}>{label}</ThemedText>
     <TextInput
@@ -418,7 +603,7 @@ const FormField = ({ label, value, onChangeText, placeholder, multiline = false,
   </View>
 );
 
-const DatePickerField = ({ label, value, onChange, colors }:any) => (
+const DatePickerField = ({ label, value, onChange, colors }: any) => (
   <View style={styles.formField}>
     <ThemedText style={[styles.label, { color: colors.text }]}>{label}</ThemedText>
     <DateTimePicker
@@ -434,7 +619,7 @@ const DatePickerField = ({ label, value, onChange, colors }:any) => (
   </View>
 );
 
-const IndustryPickerField = ({ label, value, onValueChange, industries, colors, colorScheme }:any) => (
+const IndustryPickerField = ({ label, value, onValueChange, industries, colors, colorScheme }: any) => (
   <View style={styles.formField}>
     <ThemedText style={[styles.label, { color: colors.text }]}>{label}</ThemedText>
     <View style={[styles.pickerContainer, { backgroundColor: colors.card }]}>
@@ -446,14 +631,14 @@ const IndustryPickerField = ({ label, value, onValueChange, industries, colors, 
         <Picker.Item
           label="Select an industry"
           value={null}
-          color={colorScheme === 'dark' ? 'white' : colors.primary}
+          color={colorScheme === 'dark' ? 'white' : colors.text}
         />
-        {industries.map((industry: { id: React.Key | null | undefined; name: string | undefined; }) => (
+        {industries.map((industry: Industry) => (
           <Picker.Item
             key={industry.id}
             label={industry.name}
             value={industry.id}
-            color={colorScheme === 'dark' ? 'white' : colors.primary}
+            color={colorScheme === 'dark' ? 'white' : colors.text}
           />
         ))}
       </Picker>
@@ -461,42 +646,79 @@ const IndustryPickerField = ({ label, value, onValueChange, industries, colors, 
   </View>
 );
 
+const getStatusBadgeStyle = (isApproved: boolean | null) => {
+  switch (isApproved) {
+    case true:
+      return { backgroundColor: '#4ecdc4' };
+    case false:
+      return { backgroundColor: '#ff6b6b' };
+    default:
+      return { backgroundColor: '#ffd166' };
+  }
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchContainer: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    marginVertical: 10,
-    borderRadius: 25,
-    height: 50,
+    marginBottom: 16,
+    gap: 12,
   },
-  searchIcon: {
-    marginRight: 10,
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 46,
+    borderRadius: 23,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
   },
-  listContainer: {
+  sortButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabs: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  promotionList: {
     paddingBottom: 20,
   },
-  promotionItem: {
-    borderRadius: 15,
+  promotionCard: {
+    borderRadius: 16,
+    marginBottom: 16,
     overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 5,
+    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   bannerImage: {
     width: '100%',
@@ -509,109 +731,168 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 100,
+    padding: 16,
+  },
+  headerBadges: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 16,
+  },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   daysLeftBadge: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  daysLeftText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-  },
-  statusText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  promotionContent: {
+  contentContainer: {
     padding: 16,
   },
-  promotionTitle: {
-    fontSize: 20,
+  title: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  priceRow: {
+  priceSection: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  price: {
+  originalPrice: {
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  promoPrice: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginRight: 8,
+    color: '#4ecdc4',
   },
-  discount: {
-    fontSize: 16,
+  discountBadge: {
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  discountText: {
+    color: 'white',
     fontWeight: 'bold',
-    color: '#ff6b6b',
-  },
-  dateRange: {
     fontSize: 14,
-    marginBottom: 12,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(150, 150, 150, 0.1)',
   },
   statItem: {
-    flexDirection: 'row',
     alignItems: 'center',
   },
-  statText: {
-    marginLeft: 4,
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+  },
+  industryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 4,
+  },
+  industryText: {
     fontSize: 14,
+    color: '#999',
   },
   description: {
     fontSize: 14,
-    marginBottom: 12,
-  },
-  industry: {
-    fontSize: 12,
+    lineHeight: 20,
     marginBottom: 16,
+    color: '#666',
   },
-  buttonContainer: {
+  actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 25,
-    flex: 1,
-    marginHorizontal: 4,
     justifyContent: 'center',
+    padding: 12,
+    borderRadius: 25,
+    gap: 8,
   },
-  buttonText: {
+  actionButtonText: {
     color: 'white',
-    marginLeft: 5,
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
   },
   emptyText: {
-    textAlign: 'center',
-    marginTop: 50,
+    fontSize: 16,
+    color: '#999',
+    marginTop: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sortModalContainer: {
+    width: '80%',
+    borderRadius: 16,
+    padding: 16,
+  },
+  sortModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sortModalTitle: {
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 12,
+  },
+  selectedSortOption: {
+    backgroundColor: 'rgba(150, 150, 150, 0.1)',
+  },
+  sortOptionText: {
+    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     borderTopLeftRadius: 20,
@@ -639,13 +920,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
+    borderColor: 'rgba(150, 150, 150, 0.2)',
+    borderRadius: 12,
+    padding: 12,
     fontSize: 16,
   },
   textArea: {
@@ -654,19 +935,21 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
+    borderColor: 'rgba(150, 150, 150, 0.2)',
+    borderRadius: 12,
     overflow: 'hidden',
   },
   updateButton: {
-    padding: 15,
-    borderRadius: 5,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 20,
+    marginBottom: 32,
   },
   updateButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
+

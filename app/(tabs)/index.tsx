@@ -335,7 +335,7 @@ export default function HomeScreen() {
               <View style={styles.quantityItem}>
                 <FontAwesome5 name="users" size={14} color={colors.text} style={styles.quantityIcon} />
                 <ThemedText style={[styles.quantityText, { color: colors.text }]}>
-                  Claimed: {remainingQuantity} out of {item.quantity}
+                  Remaining: {remainingQuantity} out of {item.quantity}
                 </ThemedText>
                 {isLowQuantity && <ThemedText style={styles.fireEmoji}>🔥</ThemedText>}
               </View>

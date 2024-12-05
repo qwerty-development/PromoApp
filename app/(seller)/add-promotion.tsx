@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity,
-  Image, KeyboardAvoidingView, Platform, ActivityIndicator
+  Image, KeyboardAvoidingView, Platform, ActivityIndicator, Pressable
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,17 @@ interface Industry {
   value: number;
 }
 
+interface FormErrors {
+  title: boolean;
+  description: boolean;
+  industry: boolean;
+  quantity: boolean;
+  originalPrice: boolean;
+  promotionalPrice: boolean;
+  bannerImage: boolean;
+  dates: boolean;
+}
+
 interface InputFieldProps {
   label: string;
   value: string;
@@ -27,54 +38,100 @@ interface InputFieldProps {
   numberOfLines?: number;
   keyboardType?: 'default' | 'numeric' | 'email-address';
   style?: object;
+  error?: boolean;
+  required?: boolean;
 }
 
-const InputField: React.FC<InputFieldProps> = ({ label, ...props }) => (
+const InputField: React.FC<InputFieldProps> = ({ 
+  label, 
+  error, 
+  required, 
+  ...props 
+}) => (
   <View style={styles.inputContainer}>
-    <Text style={styles.label}>{label}</Text>
+    <Text style={styles.label}>
+      {label} {required && <Text style={styles.required}>*</Text>}
+    </Text>
     <TextInput
-      style={[styles.input, props.style]}
+      style={[
+        styles.input,
+        props.style,
+        error && styles.inputError,
+        props.multiline && styles.multilineInput
+      ]}
       placeholderTextColor="#999"
       {...props}
     />
+    {error && <Text style={styles.errorText}>This field is required</Text>}
   </View>
 );
 
 export default function AddPromotionScreen() {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    startDate: new Date(),
+    endDate: new Date(),
+    bannerImage: null as string | null,
+    industry: null as number | null,
+    quantity: '',
+    originalPrice: '',
+    promotionalPrice: '',
+  });
+
+  const [formErrors, setFormErrors] = useState<FormErrors>({
+    title: false,
+    description: false,
+    industry: false,
+    quantity: false,
+    originalPrice: false,
+    promotionalPrice: false,
+    bannerImage: false,
+    dates: false,
+  });
+
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [bannerImage, setBannerImage] = useState<string | null>(null);
-  const [industry, setIndustry] = useState<number | null>(null);
   const [industries, setIndustries] = useState<Industry[]>([]);
-  const [quantity, setQuantity] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [promotionalPrice, setPromotionalPrice] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
   const { hasRequiredRole, isLoading: isRoleLoading } = useRoleCheck('seller', 30000);
 
   useEffect(() => {
-    const initializeScreen = async () => {
-      await fetchIndustries();
-      setIsLoading(false);
-    };
-
-    initializeScreen();
+    fetchIndustries();
   }, []);
 
   const fetchIndustries = async () => {
-    const { data, error } = await supabase.from('industries').select('*');
-    if (error) {
+    try {
+      const { data, error } = await supabase.from('industries').select('*');
+      if (error) throw error;
+      if (data) {
+        setIndustries(data.map(ind => ({ label: ind.name, value: ind.id })));
+      }
+      setIsLoading(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch industries');
       console.error('Error fetching industries:', error);
-    } else if (data) {
-      setIndustries(data.map(ind => ({ label: ind.name, value: ind.id })));
     }
+  };
+
+  const validateForm = (): boolean => {
+    const errors = {
+      title: !formData.title.trim(),
+      description: !formData.description.trim(),
+      industry: !formData.industry,
+      quantity: !formData.quantity.trim(),
+      originalPrice: !formData.originalPrice.trim(),
+      promotionalPrice: !formData.promotionalPrice.trim(),
+      bannerImage: !formData.bannerImage,
+      dates: formData.endDate < formData.startDate,
+    };
+
+    setFormErrors(errors);
+    return !Object.values(errors).some(error => error);
   };
 
   const calculateDiscountPercentage = useCallback((original: string, promotional: string) => {
@@ -88,139 +145,78 @@ export default function AddPromotionScreen() {
     }
   }, []);
 
-  async function handleSignOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert('Error signing out', error.message);
-    } else {
-      router.replace('/login');
-    }
-  }
-
-  const sendNotificationToAdmins = async (promotionId: string) => {
-    try {
-      // Fetch all admin users
-      const { data: admins, error: adminError } = await supabase
-        .from('users')
-        .select('id, push_token')
-        .eq('role', 'admin');
-
-      if (adminError) throw new Error('Failed to fetch admin users');
-
-      // Send notification to each admin
-      for (const admin of admins) {
-        if (admin.push_token) {
-          const message = {
-            to: admin.push_token,
-            sound: 'default',
-            title: 'New Promotion to Review',
-            body: `A new promotion "${title}" has been submitted for approval.`,
-            data: { promotionId },
-          };
-
-          await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Accept-encoding': 'gzip, deflate',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(message),
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error sending notifications to admins:', error);
-    }
-  };
-
   const handleAddPromotion = async () => {
-    if (!hasRequiredRole) {
-      Alert.alert(
-        'Role Changed',
-        'Your role has been changed. You can no longer add promotions. Please log out and log in again.',
-        [{ text: 'OK', onPress: handleSignOut }]
-      );
+    if (!validateForm()) {
+      Alert.alert('Error', 'Please fill in all required fields correctly');
       return;
     }
 
-    if (!title || !description || !industry || !bannerImage || !user || !quantity) {
-      Alert.alert('Error', 'Please fill in all fields, upload a banner image, and set a quantity.');
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      const fileExt = bannerImage.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileExt = formData.bannerImage!.split('.').pop();
+      const fileName = `${user!.id}/${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('promotion-banners')
-        .upload(filePath, { uri: bannerImage } as unknown as File, { contentType: `image/${fileExt}` });
+        .upload(filePath, { uri: formData.bannerImage } as unknown as File);
 
-      if (uploadError) throw new Error('Failed to upload image: ' + uploadError.message);
+      if (uploadError) throw new Error('Failed to upload image');
 
       const { data: publicFile } = await supabase.storage
         .from('promotion-banners')
         .getPublicUrl(filePath);
 
-      if (!publicFile || !publicFile.publicUrl) throw new Error('Failed to get public URL');
+      if (!publicFile?.publicUrl) throw new Error('Failed to get public URL');
 
-      const { data: promotionData, error: insertError } = await supabase
+      const promotionData = {
+        title: formData.title,
+        description: formData.description,
+        start_date: formData.startDate.toISOString().split('T')[0],
+        end_date: formData.endDate.toISOString().split('T')[0],
+        seller_id: user!.id,
+        industry_id: formData.industry,
+        banner_url: publicFile.publicUrl,
+        is_approved: false,
+        quantity: parseInt(formData.quantity),
+        used_quantity: 0,
+        unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        original_price: parseFloat(formData.originalPrice),
+        promotional_price: parseFloat(formData.promotionalPrice),
+      };
+
+      const { error: insertError } = await supabase
         .from('promotions')
-        .insert({
-          title,
-          description,
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          seller_id: user.id,
-          industry_id: industry,
-          banner_url: publicFile.publicUrl,
-          is_approved: false,
-          quantity: parseInt(quantity),
-          used_quantity: 0,
-          unique_code: `PROMO-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          original_price: originalPrice ? parseFloat(originalPrice) : null,
-          promotional_price: parseFloat(promotionalPrice),
-        })
-        .select()
-        .single();
+        .insert(promotionData);
 
-      if (insertError) throw new Error(insertError.message);
-
-      // Send notifications to admin users
-      await sendNotificationToAdmins(promotionData.id);
+      if (insertError) throw insertError;
 
       Alert.alert('Success', 'Promotion added successfully and sent for approval');
       router.back();
     } catch (error) {
       Alert.alert('Error', (error as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 1,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setBannerImage(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setFormData(prev => ({ ...prev, bannerImage: result.assets[0].uri }));
+        setFormErrors(prev => ({ ...prev, bannerImage: false }));
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
     }
-  };
-
-  const onChangeStartDate = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    const currentDate = selectedDate || startDate;
-    setShowStartPicker(false);
-    setStartDate(currentDate);
-  };
-
-  const onChangeEndDate = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    const currentDate = selectedDate || endDate;
-    setShowEndPicker(false);
-    setEndDate(currentDate);
   };
 
   if (isLoading || isRoleLoading) {
@@ -231,84 +227,136 @@ export default function AddPromotionScreen() {
     );
   }
 
-  if (!hasRequiredRole) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>Only sellers can add promotions.</Text>
-        <Text style={styles.errorText}>Your current role is not authorized.</Text>
-        <TouchableOpacity style={styles.backButton} onPress={handleSignOut}>
-          <Text style={styles.backButtonText}>Please Sign out!</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient
           colors={['#4a90e2', '#63b3ed']}
           style={styles.header}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <Ionicons name="add-circle-outline" size={60} color="#ffffff" />
-          <Text style={styles.headerText}>Create New Promotion</Text>
+          <View style={styles.headerContent}>
+            <Ionicons name="add-circle-outline" size={60} color="#ffffff" />
+            <Text style={styles.headerText}>Create New Promotion</Text>
+            <Text style={styles.headerSubText}>Fill in the details below</Text>
+          </View>
         </LinearGradient>
 
         <View style={styles.formContainer}>
           <InputField
             label="Title"
-            value={title}
-            onChangeText={setTitle}
+            value={formData.title}
+            onChangeText={(text) => {
+              setFormData(prev => ({ ...prev, title: text }));
+              setFormErrors(prev => ({ ...prev, title: false }));
+            }}
             placeholder="Enter promotion title"
+            error={formErrors.title}
+            required
           />
 
           <InputField
             label="Description"
-            value={description}
-            onChangeText={setDescription}
+            value={formData.description}
+            onChangeText={(text) => {
+              setFormData(prev => ({ ...prev, description: text }));
+              setFormErrors(prev => ({ ...prev, description: false }));
+            }}
             placeholder="Enter promotion description"
             multiline
             numberOfLines={4}
+            error={formErrors.description}
+            required
           />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Industry</Text>
+<View style={styles.inputContainer}>
+            <Text style={styles.label}>
+              Industry <Text style={styles.required}>*</Text>
+            </Text>
             <RNPickerSelect
-              onValueChange={(value: number | null) => setIndustry(value)}
+              onValueChange={(value) => {
+                setFormData(prev => ({ ...prev, industry: value }));
+                setFormErrors(prev => ({ ...prev, industry: false }));
+              }}
               items={industries}
-              style={pickerSelectStyles}
-              value={industry}
-              placeholder={{ label: "Select an industry", value: null }}
+              style={{
+                ...pickerSelectStyles,
+                iconContainer: {
+                  top: 10,
+                  right: 12,
+                },
+                inputAndroid: {
+                  ...pickerSelectStyles.inputAndroid,
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: formErrors.industry ? '#e53e3e' : '#e2e8f0',
+                  borderRadius: 10,
+                  padding: 10,
+                  paddingRight: 30, // to ensure text doesn't go behind the icon
+                },
+                inputIOS: {
+                  ...pickerSelectStyles.inputIOS,
+                  backgroundColor: 'white',
+                  borderWidth: 1,
+                  borderColor: formErrors.industry ? '#e53e3e' : '#e2e8f0',
+                  borderRadius: 10,
+                  padding: 10,
+                  paddingRight: 30,
+                }
+              }}
+              value={formData.industry}
+              useNativeAndroidPickerStyle={false}
+              placeholder={{
+                label: "Select an industry",
+                value: null,
+                color: '#9EA0A4',
+              }}
+              Icon={() => {
+                return <Ionicons name="chevron-down" size={24} color="#4a5568" />;
+              }}
             />
+            {formErrors.industry && (
+              <Text style={styles.errorText}>Please select an industry</Text>
+            )}
           </View>
 
           <View style={styles.priceContainer}>
             <InputField
               label="Original Price"
-              value={originalPrice}
-              onChangeText={(text: string) => {
-                setOriginalPrice(text);
-                calculateDiscountPercentage(text, promotionalPrice);
+              value={formData.originalPrice}
+              onChangeText={(text) => {
+                setFormData(prev => ({ ...prev, originalPrice: text }));
+                setFormErrors(prev => ({ ...prev, originalPrice: false }));
+                calculateDiscountPercentage(text, formData.promotionalPrice);
               }}
               placeholder="Original price"
               keyboardType="numeric"
               style={styles.halfWidth}
+              error={formErrors.originalPrice}
+              required
             />
 
             <InputField
               label="Promotional Price"
-              value={promotionalPrice}
-              onChangeText={(text: string) => {
-                setPromotionalPrice(text);
-                calculateDiscountPercentage(originalPrice, text);
+              value={formData.promotionalPrice}
+              onChangeText={(text) => {
+                setFormData(prev => ({ ...prev, promotionalPrice: text }));
+                setFormErrors(prev => ({ ...prev, promotionalPrice: false }));
+                calculateDiscountPercentage(formData.originalPrice, text);
               }}
               placeholder="Promo price"
               keyboardType="numeric"
               style={styles.halfWidth}
+              error={formErrors.promotionalPrice}
+              required
             />
           </View>
 
@@ -319,52 +367,119 @@ export default function AddPromotionScreen() {
           )}
 
           <View style={styles.dateContainer}>
-            <View style={styles.halfWidth}>
-              <Text style={styles.label}>Start Date</Text>
-              <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
-                <Text style={styles.dateButtonText}>{startDate.toDateString()}</Text>
-              </TouchableOpacity>
-            </View>
+            <Pressable 
+              style={[styles.halfWidth, formErrors.dates && styles.inputError]} 
+              onPress={() => setShowStartPicker(true)}
+            >
+              <Text style={styles.label}>
+                Start Date <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.dateButton}>
+                <Text style={styles.dateButtonText}>
+                  {formData.startDate.toLocaleDateString()}
+                </Text>
+              </View>
+            </Pressable>
 
-            <View style={styles.halfWidth}>
-              <Text style={styles.label}>End Date</Text>
-              <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
-                <Text style={styles.dateButtonText}>{endDate.toDateString()}</Text>
-              </TouchableOpacity>
-            </View>
+            <Pressable 
+              style={[styles.halfWidth, formErrors.dates && styles.inputError]}
+              onPress={() => setShowEndPicker(true)}
+            >
+              <Text style={styles.label}>
+                End Date <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.dateButton}>
+                <Text style={styles.dateButtonText}>
+                  {formData.endDate.toLocaleDateString()}
+                </Text>
+              </View>
+            </Pressable>
           </View>
+
+          {formErrors.dates && (
+            <Text style={styles.errorText}>
+              End date must be after start date
+            </Text>
+          )}
 
           {(showStartPicker || showEndPicker) && (
             <DateTimePicker
-              value={showStartPicker ? startDate : endDate}
+              value={showStartPicker ? formData.startDate : formData.endDate}
               mode="date"
               display="default"
-              onChange={showStartPicker ? onChangeStartDate : onChangeEndDate}
+              onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                if (selectedDate) {
+                  setFormData(prev => ({
+                    ...prev,
+                    [showStartPicker ? 'startDate' : 'endDate']: selectedDate
+                  }));
+                  setFormErrors(prev => ({ ...prev, dates: false }));
+                }
+                setShowStartPicker(false);
+                setShowEndPicker(false);
+              }}
+              minimumDate={new Date()}
             />
           )}
 
           <InputField
             label="Quantity"
-            value={quantity}
-            onChangeText={setQuantity}
+            value={formData.quantity}
+            onChangeText={(text) => {
+              setFormData(prev => ({ ...prev, quantity: text }));
+              setFormErrors(prev => ({ ...prev, quantity: false }));
+            }}
             placeholder="Enter promotion quantity"
             keyboardType="numeric"
+            error={formErrors.quantity}
+            required
           />
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Banner Image</Text>
-            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-              <Ionicons name="image-outline" size={24} color="#4a90e2" />
-              <Text style={styles.imageButtonText}>Select Banner Image</Text>
+            <Text style={styles.label}>
+              Banner Image <Text style={styles.required}>*</Text>
+            </Text>
+            <TouchableOpacity 
+              style={[
+                styles.imageButton,
+                formErrors.bannerImage && styles.inputError
+              ]} 
+              onPress={pickImage}
+            >
+              <Ionicons 
+                name={formData.bannerImage ? "image" : "image-outline"} 
+                size={24} 
+                color="#4a90e2" 
+              />
+              <Text style={styles.imageButtonText}>
+                {formData.bannerImage ? "Change Image" : "Select Banner Image"}
+              </Text>
             </TouchableOpacity>
+            {formErrors.bannerImage && (
+              <Text style={styles.errorText}>Please select an image</Text>
+            )}
           </View>
 
-          {bannerImage && (
-            <Image source={{ uri: bannerImage }} style={styles.bannerPreview} />
-          )}
+          {formData.bannerImage && (
+              <Image 
+                source={{ uri: formData.bannerImage }} 
+                style={styles.bannerPreview} 
+              />
+            )}
 
-          <TouchableOpacity style={styles.addButton} onPress={handleAddPromotion}>
-            <Text style={styles.addButtonText}>Create Promotion</Text>
+          <TouchableOpacity 
+            style={[
+              styles.addButton,
+              isSubmitting && styles.addButtonDisabled
+            ]} 
+            onPress={handleAddPromotion}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.addButtonText}>Create Promotion</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -381,19 +496,36 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  headerContent: {
+    alignItems: 'center',
   },
   headerText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     marginTop: 10,
     color: '#ffffff',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  headerSubText: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginTop: 5,
+    opacity: 0.9,
   },
   formContainer: {
     padding: 20,
+    marginTop: 10,
   },
   inputContainer: {
     marginBottom: 20,
@@ -403,6 +535,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     color: '#4a5568',
+  },
+  required: {
+    color: '#e53e3e',
   },
   input: {
     height: 50,
@@ -414,6 +549,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     color: '#2d3748',
   },
+  multilineInput: {
+    height: 100,
+    textAlignVertical: 'top',
+    paddingTop: 12,
+  },
+  inputError: {
+    borderColor: '#e53e3e',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#e53e3e',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
   priceContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -424,7 +579,7 @@ const styles = StyleSheet.create({
   dateContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   dateButton: {
     height: 50,
@@ -468,6 +623,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  addButtonDisabled: {
+    backgroundColor: '#9cb3c9',
   },
   addButtonText: {
     color: 'white',
@@ -476,10 +639,12 @@ const styles = StyleSheet.create({
   },
   discountContainer: {
     backgroundColor: '#ebf8ff',
-    padding: 10,
+    padding: 12,
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4a90e2',
   },
   discountText: {
     fontSize: 18,
@@ -490,22 +655,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorText: {
-    fontSize: 18,
-    color: '#e53e3e',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    backgroundColor: '#4a90e2',
-    padding: 15,
-    borderRadius: 10,
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
 });
 
 const pickerSelectStyles = StyleSheet.create({
@@ -513,22 +662,17 @@ const pickerSelectStyles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
     color: '#2d3748',
     paddingRight: 30,
-    backgroundColor: 'white',
   },
   inputAndroid: {
     fontSize: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
     color: '#2d3748',
     paddingRight: 30,
-    backgroundColor: 'white',
+  },
+  placeholder: {
+    color: '#999',
   },
 });
