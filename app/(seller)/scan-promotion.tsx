@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Alert, TouchableOpacity, View, Dimensions, Modal } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { RNCamera } from 'react-native-camera';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { ThemedView } from '@/components/ThemedView';
@@ -29,14 +29,11 @@ export default function ScanPromotionScreen() {
   const [scannedPromotion, setScannedPromotion] = useState<Promotion | null>(null);
   const router = useRouter();
   const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraRef = useRef<RNCamera | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
-    (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-
+    // Permission is handled by RNCamera component itself
     return () => {
       if (cooldownRef.current) {
         clearTimeout(cooldownRef.current);
@@ -44,7 +41,7 @@ export default function ScanPromotionScreen() {
     };
   }, []);
 
-  const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
+  const handleBarCodeRead = useCallback(async ({ data }: { data: string }) => {
     if (!isScanning || !user) return;
 
     setIsScanning(false);
@@ -65,7 +62,6 @@ export default function ScanPromotionScreen() {
 
       console.log('Fetched promotion:', promotionData);
 
-      // Check if the current user (seller) is the one who posted the promotion
       if (promotionData.seller_id !== user.id) {
         throw new Error('Unauthorized: You are not the seller of this promotion.');
       }
@@ -97,7 +93,6 @@ export default function ScanPromotionScreen() {
       cooldownRef.current = setTimeout(() => setIsScanning(true), 3000);
     }
   }, [isScanning, user]);
-
 
   const handleClaimPromotion = useCallback(async () => {
     if (!scannedPromotion || !user) {
@@ -152,33 +147,39 @@ export default function ScanPromotionScreen() {
     }
   }, [scannedPromotion, user]);
 
-  if (hasPermission === null) {
-    return <ThemedText>Requesting camera permission</ThemedText>;
-  }
-  if (hasPermission === false) {
-    return <ThemedText>No access to camera</ThemedText>;
-  }
-
   return (
     <ThemedView style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={isScanning ? handleBarCodeScanned : undefined}
+      <RNCamera
+        ref={cameraRef}
         style={StyleSheet.absoluteFillObject}
-      />
-      <View style={styles.overlay}>
-        <View style={styles.unfocusedContainer} />
-        <View style={styles.middleContainer}>
+        type={RNCamera.Constants.Type.back}
+        onBarCodeRead={isScanning ? handleBarCodeRead : undefined}
+        barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
+        captureAudio={false}
+        androidCameraPermissionOptions={{
+          title: 'Permission to use camera',
+          message: 'We need your permission to use your camera',
+          buttonPositive: 'Ok',
+          buttonNegative: 'Cancel',
+        }}
+      >
+        <View style={styles.overlay}>
           <View style={styles.unfocusedContainer} />
-          <View style={styles.focusedContainer}>
-            <Ionicons name="scan-outline" size={qrSize} color="white" />
+          <View style={styles.middleContainer}>
+            <View style={styles.unfocusedContainer} />
+            <View style={styles.focusedContainer}>
+              <Ionicons name="scan-outline" size={qrSize} color="white" />
+            </View>
+            <View style={styles.unfocusedContainer} />
           </View>
           <View style={styles.unfocusedContainer} />
         </View>
-        <View style={styles.unfocusedContainer} />
-      </View>
+      </RNCamera>
+      
       <View style={styles.bottomTextContainer}>
         <ThemedText style={styles.bottomText}>Align QR code within the frame</ThemedText>
       </View>
+
       {!isScanning && (
         <TouchableOpacity
           style={styles.button}
@@ -190,6 +191,7 @@ export default function ScanPromotionScreen() {
           </ThemedText>
         </TouchableOpacity>
       )}
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -197,7 +199,6 @@ export default function ScanPromotionScreen() {
         onRequestClose={() => {
           setModalVisible(false);
           setIsScanning(true);
-
         }}
       >
         <View style={styles.centeredView}>
@@ -218,7 +219,7 @@ export default function ScanPromotionScreen() {
                   Price: ${scannedPromotion.promotional_price.toFixed(2)}
                 </ThemedText>
                 <ThemedText style={styles.quantity}>
-                  Promotion Left: {scannedPromotion.quantity - scannedPromotion.used_quantity -1} / {scannedPromotion.quantity}
+                  Promotion Left: {scannedPromotion.quantity - scannedPromotion.used_quantity - 1} / {scannedPromotion.quantity}
                 </ThemedText>
               </>
             )}
@@ -247,11 +248,11 @@ const styles = StyleSheet.create({
   claimedText: {
     fontSize: 25,
     textAlign: 'center',
-    fontWeight: 700,
-    borderColor:'green',
-    borderWidth:3,
-    margin:10,
-    padding:10,
+    fontWeight: '700',
+    borderColor: 'green',
+    borderWidth: 3,
+    margin: 10,
+    padding: 10,
     marginTop: 2,
   },
   overlay: {
