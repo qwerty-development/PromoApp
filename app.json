@@ -12,7 +12,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo/icon.png",
-    "backgroundColor":"#34495e",
+    "backgroundColor": "#34495e",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -36,9 +36,12 @@
         {
           "icon": "./assets/logo/icon.png",
           "color": "#34495e",
-          "sounds": ["./assets/level-up-191997.mp3"]
+          "sounds": [
+            "./assets/level-up-191997.mp3"
+          ]
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
